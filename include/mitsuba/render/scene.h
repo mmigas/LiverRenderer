@@ -491,6 +491,9 @@ public:
     Point3f invert_silhouette_sample(const SilhouetteSample3f &ss,
                                      Mask active = true) const;
 
+    void wake_up();
+    void preprocess();
+
     //! @}
     // =============================================================
 

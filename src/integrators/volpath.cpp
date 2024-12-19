@@ -2,6 +2,7 @@
 #include <mitsuba/core/ray.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/render/bsdf.h>
+#include <mitsuba/render/subsurface.h>
 #include <mitsuba/render/emitter.h>
 #include <mitsuba/render/integrator.h>
 #include <mitsuba/render/records.h>
@@ -68,21 +69,25 @@ to it (as compared to, say, a :ref:`dielectric <bsdf-dielectric>` or
         'max_depth': 8
 
 */
-template <typename Float, typename Spectrum>
-class VolumetricPathIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
+template <typename Float, typename Spectrum> class VolumetricPathIntegrator
+    : public MonteCarloIntegrator<Float, Spectrum> {
 
 public:
-    MI_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth, m_hide_emitters)
+    MI_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth,
+                   m_hide_emitters)
     MI_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr,
-                     Medium, MediumPtr, PhaseFunctionContext)
+                    Medium, MediumPtr, PhaseFunctionContext)
 
-    VolumetricPathIntegrator(const Properties &props) : Base(props) {
+    VolumetricPathIntegrator(const Properties &props)
+        : Base(props) {
     }
 
     MI_INLINE
-    Float index_spectrum(const UnpolarizedSpectrum &spec, const UInt32 &idx) const {
+    Float index_spectrum(const UnpolarizedSpectrum &spec,
+                         const UInt32 &idx) const {
         Float m = spec[0];
-        if constexpr (is_rgb_v<Spectrum>) { // Handle RGB rendering
+        if constexpr (is_rgb_v<Spectrum>) {
+            // Handle RGB rendering
             dr::masked(m, idx == 1u) = spec[1];
             dr::masked(m, idx == 2u) = spec[2];
         } else {
@@ -324,6 +329,24 @@ public:
                 }
             }
             active_surface &= si.is_valid();
+            // ---------------------- Subsurface scattering ----------------------
+            Mask has_subsurface = active_surface && si.has_subsurface();
+            Spectrum bssrdf_val = drjit::if_stmt(std::make_tuple(active_surface, has_subsurface),
+                                                 active_surface && si.has_subsurface(),
+                                                 [&](auto active_surface, auto has_subsurface) {
+                                                     Spectrum bssrdf_val = si.subsurface_sample(scene, sampler, -ray.d, depth);
+                                                     return bssrdf_val;
+                                                 },
+                                                 [&](auto active_surface, auto has_subsurface) {
+                                                     return Spectrum(1.f);
+                                                 }
+            );
+            dr::masked(result, has_subsurface) += throughput * bssrdf_val;
+            
+            
+            /*if (dr::any_or<true>(has_subsurface)) {
+                Spectrum bssrdf_val = si.subsurface_sample(scene, sampler, -ray.d, depth);
+            }*/
             if (dr::any_or<true>(active_surface)) {
                 // --------------------- Emitter sampling ---------------------
                 BSDFContext ctx;
@@ -379,14 +402,14 @@ public:
 
 
     /// Samples an emitter in the scene and evaluates its attenuated contribution
-    template <typename Interaction>
-    std::tuple<Spectrum, DirectionSample3f>
+    template <typename Interaction> std::tuple<Spectrum, DirectionSample3f>
     sample_emitter(const Interaction &ref_interaction, const Scene *scene,
                    Sampler *sampler, MediumPtr medium,
                    UInt32 channel, Mask active) const {
         Spectrum transmittance(1.0f);
 
-        auto [ds, emitter_val] = scene->sample_emitter_direction(ref_interaction, sampler->next_2d(active), false, active);
+        auto [ds, emitter_val] = scene->sample_emitter_direction(
+            ref_interaction, sampler->next_2d(active), false, active);
         dr::masked(emitter_val, ds.pdf == 0.f) = 0.f;
         active &= (ds.pdf != 0.f);
 
@@ -394,7 +417,7 @@ public:
             return { emitter_val, ds };
         }
 
-        Ray3f ray = ref_interaction.spawn_ray_to(ds.p);
+        Ray3f ray      = ref_interaction.spawn_ray_to(ds.p);
         Float max_dist = ray.maxt;
 
         // Potentially escaping the medium if this is the current medium's boundary
@@ -402,9 +425,9 @@ public:
             dr::masked(medium, ref_interaction.is_medium_transition()) =
                 ref_interaction.target_medium(ray.d);
 
-        Float total_dist = 0.f;
-        SurfaceInteraction3f si = dr::zeros<SurfaceInteraction3f>();
-        Mask needs_intersection = true;
+        Float total_dist             = 0.f;
+        SurfaceInteraction3f si      = dr::zeros<SurfaceInteraction3f>();
+        Mask needs_intersection      = true;
         DirectionSample3f dir_sample = ds;
 
         struct LoopState {
@@ -416,121 +439,225 @@ public:
             SurfaceInteraction3f si;
             Spectrum transmittance;
             DirectionSample3f dir_sample;
-            Sampler* sampler;
+            Sampler *sampler;
 
-            DRJIT_STRUCT(LoopState, active, ray, total_dist, \
-                needs_intersection, medium, si, transmittance, \
-                dir_sample, sampler)
+            DRJIT_STRUCT(LoopState, active, ray, total_dist,
+                         needs_intersection, medium, si, transmittance,
+                         dir_sample, sampler)
         } ls = {
-            active,
-            ray,
-            total_dist,
-            needs_intersection,
-            medium,
-            si,
-            transmittance,
-            dir_sample,
-            sampler
-        };
+                active,
+                ray,
+                total_dist,
+                needs_intersection,
+                medium,
+                si,
+                transmittance,
+                dir_sample,
+                sampler
+            };
 
         dr::tie(ls) = dr::while_loop(dr::make_tuple(ls),
-            [](const LoopState& ls) { return dr::detach(ls.active); },
-            [this, scene, channel, max_dist](LoopState& ls) {
+                                     [](const LoopState &ls) {
+                                         return dr::detach(ls.active);
+                                     },
+                                     [this, scene, channel, max_dist](
+                                     LoopState &ls) {
 
-            Mask& active = ls.active;
-            Ray3f& ray = ls.ray;
-            Float& total_dist = ls.total_dist;
-            Mask& needs_intersection = ls.needs_intersection;
-            MediumPtr& medium = ls.medium;
-            SurfaceInteraction3f& si = ls.si;
-            Spectrum& transmittance = ls.transmittance;
-            DirectionSample3f& dir_sample = ls.dir_sample;
-            Sampler* sampler = ls.sampler;
+                                         Mask &active = ls.active;
+                                         Ray3f &ray = ls.ray;
+                                         Float &total_dist = ls.total_dist;
+                                         Mask &needs_intersection = ls.
+                                             needs_intersection;
+                                         MediumPtr &medium        = ls.medium;
+                                         SurfaceInteraction3f &si = ls.si;
+                                         Spectrum &transmittance  = ls.
+                                             transmittance;
+                                         DirectionSample3f &dir_sample = ls.
+                                             dir_sample;
+                                         Sampler *sampler = ls.sampler;
 
-            Float remaining_dist = max_dist - total_dist;
-            ray.maxt = remaining_dist;
-            active &= remaining_dist > 0.f;
-            if (dr::none_or<false>(active))
-                return;
+                                         Float remaining_dist =
+                                             max_dist - total_dist;
+                                         ray.maxt = remaining_dist;
+                                         active &= remaining_dist > 0.f;
+                                         if (dr::none_or<false>(active))
+                                             return;
 
-            Mask escaped_medium = false;
-            Mask active_medium  = active && (medium != nullptr);
-            Mask active_surface = active && !active_medium;
+                                         Mask escaped_medium = false;
+                                         Mask active_medium  =
+                                             active && (medium != nullptr);
+                                         Mask active_surface =
+                                             active && !active_medium;
 
-            if (dr::any_or<true>(active_medium)) {
-                auto mei = medium->sample_interaction(ray, sampler->next_1d(active_medium), channel, active_medium);
-                dr::masked(ray.maxt, active_medium && medium->is_homogeneous() && mei.is_valid()) = dr::minimum(mei.t, remaining_dist);
-                Mask intersect = needs_intersection && active_medium;
-                if (dr::any_or<true>(intersect))
-                    dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);
+                                         if (dr::any_or<true>(active_medium)) {
+                                             auto mei = medium->
+                                                 sample_interaction(
+                                                     ray, sampler->next_1d(
+                                                         active_medium),
+                                                     channel, active_medium);
+                                             dr::masked(
+                                                 ray.maxt,
+                                                 active_medium && medium->
+                                                 is_homogeneous() && mei.
+                                                 is_valid()) = dr::minimum(
+                                                 mei.t, remaining_dist);
+                                             Mask intersect =
+                                                 needs_intersection &&
+                                                 active_medium;
+                                             if (dr::any_or<true>(intersect))
+                                                 dr::masked(si, intersect) =
+                                                     scene->ray_intersect(
+                                                         ray, intersect);
 
-                dr::masked(mei.t, active_medium && (si.t < mei.t)) = dr::Infinity<Float>;
-                needs_intersection &= !active_medium;
+                                             dr::masked(
+                                                     mei.t,
+                                                     active_medium && (
+                                                         si.t < mei.t)) =
+                                                 dr::Infinity<Float>;
+                                             needs_intersection &= !
+                                                 active_medium;
 
-                Mask is_spectral = medium->has_spectral_extinction() && active_medium;
-                Mask not_spectral = !is_spectral && active_medium;
-                if (dr::any_or<true>(is_spectral)) {
-                    Float t      = dr::minimum(remaining_dist, dr::minimum(mei.t, si.t)) - mei.mint;
-                    UnpolarizedSpectrum tr  = dr::exp(-t * mei.combined_extinction);
-                    UnpolarizedSpectrum free_flight_pdf = dr::select(si.t < mei.t || mei.t > remaining_dist, tr, tr * mei.combined_extinction);
-                    Float tr_pdf = index_spectrum(free_flight_pdf, channel);
-                    dr::masked(transmittance, is_spectral) *= dr::select(tr_pdf > 0.f, tr / tr_pdf, 0.f);
-                }
+                                             Mask is_spectral =
+                                                 medium->
+                                                 has_spectral_extinction() &&
+                                                 active_medium;
+                                             Mask not_spectral =
+                                                 !is_spectral && active_medium;
+                                             if (dr::any_or<
+                                                 true>(is_spectral)) {
+                                                 Float t = dr::minimum(
+                                                         remaining_dist,
+                                                         dr::minimum(
+                                                             mei.t, si.t)) - mei
+                                                     .mint;
+                                                 UnpolarizedSpectrum tr =
+                                                     dr::exp(
+                                                         -t * mei.
+                                                         combined_extinction);
+                                                 UnpolarizedSpectrum
+                                                     free_flight_pdf =
+                                                         dr::select(
+                                                             si.t < mei.t || mei
+                                                             .t >
+                                                             remaining_dist, tr,
+                                                             tr * mei.
+                                                             combined_extinction);
+                                                 Float tr_pdf = index_spectrum(
+                                                     free_flight_pdf, channel);
+                                                 dr::masked(
+                                                     transmittance,
+                                                     is_spectral) *= dr::select(
+                                                     tr_pdf > 0.f, tr / tr_pdf,
+                                                     0.f);
+                                             }
 
-                // Handle exceeding the maximum distance by medium sampling
-                dr::masked(total_dist, active_medium && (mei.t > remaining_dist) && mei.is_valid()) = dir_sample.dist;
-                dr::masked(mei.t, active_medium && (mei.t > remaining_dist)) = dr::Infinity<Float>;
+                                             // Handle exceeding the maximum distance by medium sampling
+                                             dr::masked(
+                                                     total_dist,
+                                                     active_medium && (
+                                                         mei.t > remaining_dist)
+                                                     &&
+                                                     mei.is_valid()) =
+                                                 dir_sample.
+                                                 dist;
+                                             dr::masked(
+                                                     mei.t,
+                                                     active_medium && (
+                                                         mei.t >
+                                                         remaining_dist)) =
+                                                 dr::Infinity<Float>;
 
-                escaped_medium = active_medium && !mei.is_valid();
-                active_medium &= mei.is_valid();
-                is_spectral &= active_medium;
-                not_spectral &= active_medium;
+                                             escaped_medium =
+                                                 active_medium && !mei.
+                                                 is_valid();
+                                             active_medium &= mei.is_valid();
+                                             is_spectral &= active_medium;
+                                             not_spectral &= active_medium;
 
-                dr::masked(total_dist, active_medium) += mei.t;
+                                             dr::masked(
+                                                 total_dist,
+                                                 active_medium) += mei.t;
 
-                if (dr::any_or<true>(active_medium)) {
-                    dr::masked(ray.o, active_medium)    = mei.p;
-                    dr::masked(si.t, active_medium) = si.t - mei.t;
+                                             if (dr::any_or<
+                                                 true>(active_medium)) {
+                                                 dr::masked(
+                                                         ray.o, active_medium) =
+                                                     mei
+                                                     .p;
+                                                 dr::masked(si.t, active_medium)
+                                                     = si.t - mei.t;
 
-                    if (dr::any_or<true>(is_spectral))
-                        dr::masked(transmittance, is_spectral) *= mei.sigma_n;
-                    if (dr::any_or<true>(not_spectral))
-                        dr::masked(transmittance, not_spectral) *= mei.sigma_n / mei.combined_extinction;
-                }
-            }
+                                                 if (dr::any_or<true>(
+                                                     is_spectral))
+                                                     dr::masked(
+                                                             transmittance,
+                                                             is_spectral) *= mei
+                                                         .
+                                                         sigma_n;
+                                                 if (dr::any_or<true>(
+                                                     not_spectral))
+                                                     dr::masked(
+                                                             transmittance,
+                                                             not_spectral) *=
+                                                         mei.
+                                                         sigma_n / mei.
+                                                         combined_extinction;
+                                             }
+                                         }
 
-            // Handle interactions with surfaces
-            Mask intersect = active_surface && needs_intersection;
-            if (dr::any_or<true>(intersect))
-                dr::masked(si, intersect)    = scene->ray_intersect(ray, intersect);
-            needs_intersection &= !intersect;
-            active_surface |= escaped_medium;
-            dr::masked(total_dist, active_surface) += si.t;
+                                         // Handle interactions with surfaces
+                                         Mask intersect =
+                                             active_surface &&
+                                             needs_intersection;
+                                         if (dr::any_or<true>(intersect))
+                                             dr::masked(si, intersect) = scene->
+                                                 ray_intersect(ray, intersect);
+                                         needs_intersection &= !intersect;
+                                         active_surface |= escaped_medium;
+                                         dr::masked(total_dist, active_surface)
+                                             += si.t;
 
-            active_surface &= si.is_valid() && active && !active_medium;
-            if (dr::any_or<true>(active_surface)) {
-                auto bsdf         = si.bsdf(ray);
-                Spectrum bsdf_val = bsdf->eval_null_transmission(si, active_surface);
-                bsdf_val = si.to_world_mueller(bsdf_val, si.wi, si.wi);
-                dr::masked(transmittance, active_surface) *= bsdf_val;
-            }
+                                         active_surface &= si.is_valid() &&
+                                             active && !active_medium;
+                                         if (dr::any_or<true>(active_surface)) {
+                                             auto bsdf         = si.bsdf(ray);
+                                             Spectrum bsdf_val = bsdf->
+                                                 eval_null_transmission(
+                                                     si, active_surface);
+                                             bsdf_val = si.to_world_mueller(
+                                                 bsdf_val, si.wi, si.wi);
+                                             dr::masked(
+                                                 transmittance,
+                                                 active_surface) *= bsdf_val;
+                                         }
 
-            // Update the ray with new origin & t parameter
-            dr::masked(ray, active_surface) = si.spawn_ray(ray.d);
-            ray.maxt = remaining_dist;
-            needs_intersection |= active_surface;
+                                         // Update the ray with new origin & t parameter
+                                         dr::masked(ray, active_surface) = si.
+                                             spawn_ray(ray.d);
+                                         ray.maxt = remaining_dist;
+                                         needs_intersection |= active_surface;
 
-            // Continue tracing through scene if non-zero weights exist
-            active &= (active_medium || active_surface) &&
-                      dr::any(unpolarized_spectrum(transmittance) != 0.f);
+                                         // Continue tracing through scene if non-zero weights exist
+                                         active &= (
+                                                 active_medium ||
+                                                 active_surface) &&
+                                             dr::any(
+                                                 unpolarized_spectrum(
+                                                     transmittance) != 0.f);
 
-            // If a medium transition is taking place: Update the medium pointer
-            Mask has_medium_trans = active_surface && si.is_medium_transition();
-            if (dr::any_or<true>(has_medium_trans)) {
-                dr::masked(medium, has_medium_trans) = si.target_medium(ray.d);
-            }
-        },
-        "Volpath integrator emitter sampling");
+                                         // If a medium transition is taking place: Update the medium pointer
+                                         Mask has_medium_trans =
+                                             active_surface && si.
+                                             is_medium_transition();
+                                         if (dr::any_or<
+                                             true>(has_medium_trans)) {
+                                             dr::masked(
+                                                     medium, has_medium_trans) =
+                                                 si.
+                                                 target_medium(ray.d);
+                                         }
+                                     },
+                                     "Volpath integrator emitter sampling");
 
         return { ls.transmittance * emitter_val, dir_sample };
     }

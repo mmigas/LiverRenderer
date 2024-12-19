@@ -38,6 +38,7 @@ enum class ShapeType : uint32_t {
     /// Other shapes
     Other = 9u
 };
+
 MI_DECLARE_ENUM_OPERATORS(ShapeType)
 
 /**
@@ -92,6 +93,7 @@ enum class DiscontinuityFlags : uint32_t {
     /// All types of discontinuities
     AllTypes = PerimeterType | InteriorType
 };
+
 MI_DECLARE_ENUM_OPERATORS(DiscontinuityFlags)
 
 /// Forward declaration for `SilhouetteSample`
@@ -101,8 +103,8 @@ template <typename Float, typename Spectrum> class Shape;
  * \brief Data structure holding the result of visibility silhouette sampling
  * operations on geometry.
  */
-template <typename Float_, typename Spectrum_>
-struct SilhouetteSample : public PositionSample<Float_, Spectrum_> {
+template <typename Float_, typename Spectrum_> struct SilhouetteSample
+    : public PositionSample<Float_, Spectrum_> {
     // =============================================================
     //! @{ \name Type declarations
     // =============================================================
@@ -181,7 +183,8 @@ struct SilhouetteSample : public PositionSample<Float_, Spectrum_> {
     SilhouetteSample(const PositionSample<Float, Spectrum> &ps)
         : Base(ps), discontinuity_type((uint32_t) DiscontinuityFlags::Empty),
           d(0), silhouette_d(0), prim_index(0), scene_index(0), flags(0),
-          projection_index(0), shape(nullptr), foreshortening(0), offset(0) {}
+          projection_index(0), shape(nullptr), foreshortening(0), offset(0) {
+    }
 
     /// Is the current boundary segment valid=
     Mask is_valid() const {
@@ -218,15 +221,16 @@ struct SilhouetteSample : public PositionSample<Float_, Spectrum_> {
  * computing ray intersections, and bounding shapes within ray intersection
  * acceleration data structures.
  */
-template <typename Float, typename Spectrum>
-class MI_EXPORT_LIB Shape : public Object {
+template <typename Float, typename Spectrum> class MI_EXPORT_LIB Shape
+    : public Object {
 public:
-    MI_IMPORT_TYPES(BSDF, Medium, Emitter, Sensor, MeshAttribute, Texture)
+    MI_IMPORT_TYPES(BSDF, Subsurface, Medium, Emitter, Sensor, MeshAttribute,
+                    Texture)
 
     // Use 32 bit indices to keep track of indices to conserve memory
     using ScalarIndex = uint32_t;
     using ScalarSize  = uint32_t;
-    using Index = UInt32;
+    using Index       = UInt32;
     using ScalarRay3f = Ray<ScalarPoint3f, Spectrum>;
 
     /// Destructor
@@ -266,7 +270,8 @@ public:
      * \return
      *     The probability density per unit area
      */
-    virtual Float pdf_position(const PositionSample3f &ps, Mask active = true) const;
+    virtual Float pdf_position(const PositionSample3f &ps,
+                               Mask active = true) const;
 
     /**
      * \brief Sample a direction towards this shape with respect to solid
@@ -295,7 +300,8 @@ public:
      * \return
      *     A \ref DirectionSample instance describing the generated sample
      */
-    virtual DirectionSample3f sample_direction(const Interaction3f &it, const Point2f &sample,
+    virtual DirectionSample3f sample_direction(const Interaction3f &it,
+                                               const Point2f &sample,
                                                Mask active = true) const;
 
     /**
@@ -310,7 +316,8 @@ public:
      * \return
      *     The probability density per unit solid angle
      */
-    virtual Float pdf_direction(const Interaction3f &it, const DirectionSample3f &ds,
+    virtual Float pdf_direction(const Interaction3f &it,
+                                const DirectionSample3f &ds,
                                 Mask active = true) const;
 
     //! @}
@@ -437,11 +444,12 @@ public:
      *      A boundary segment on the silhouette of the shape as seen from
      *      \c viewpoint.
      */
-    virtual SilhouetteSample3f primitive_silhouette_projection(const Point3f &viewpoint,
-                                                               const SurfaceInteraction3f &si,
-                                                               uint32_t flags,
-                                                               Float sample,
-                                                               Mask active = true) const;
+    virtual SilhouetteSample3f primitive_silhouette_projection(
+        const Point3f &viewpoint,
+        const SurfaceInteraction3f &si,
+        uint32_t flags,
+        Float sample,
+        Mask active = true) const;
 
     /**
      * \brief Precompute the visible silhouette of this shape for a given
@@ -495,10 +503,11 @@ public:
      *      A boundary segment on the silhouette of the shape as seen from
      *      \c viewpoint.
      */
-    virtual SilhouetteSample3f sample_precomputed_silhouette(const Point3f &viewpoint,
-                                                             Index sample1,
-                                                             Float sample2,
-                                                             Mask active = true) const;
+    virtual SilhouetteSample3f sample_precomputed_silhouette(
+        const Point3f &viewpoint,
+        Index sample1,
+        Float sample2,
+        Mask active = true) const;
 
     //! @}
     // =============================================================
@@ -526,9 +535,10 @@ public:
      *     shape that contains a single primitive. Otherwise, if no index is provided,
      *     the ray intersection will be performed on the shape's first primitive at index 0.
      */
-    virtual PreliminaryIntersection3f ray_intersect_preliminary(const Ray3f &ray,
-                                                                ScalarIndex prim_index = 0,
-                                                                Mask active = true) const;
+    virtual PreliminaryIntersection3f ray_intersect_preliminary(
+        const Ray3f &ray,
+        ScalarIndex prim_index = 0,
+        Mask active            = true) const;
     /**
      * \brief Fast ray shadow test
      *
@@ -545,7 +555,8 @@ public:
      * \param prim_index
      *     Index of the primitive to be intersected
      */
-    virtual Mask ray_test(const Ray3f &ray, ScalarIndex prim_index = 0, Mask active = true) const;
+    virtual Mask ray_test(const Ray3f &ray, ScalarIndex prim_index = 0,
+                          Mask active = true) const;
 
     /**
      * \brief Compute and return detailed information related to a surface interaction
@@ -572,10 +583,10 @@ public:
      *      A data structure containing the detailed information
      */
     virtual SurfaceInteraction3f compute_surface_interaction(const Ray3f &ray,
-                                                             const PreliminaryIntersection3f &pi,
-                                                             uint32_t ray_flags = +RayFlags::All,
-                                                             uint32_t recursion_depth = 0,
-                                                             Mask active = true) const;
+        const PreliminaryIntersection3f &pi,
+        uint32_t ray_flags       = +RayFlags::All,
+        uint32_t recursion_depth = 0,
+        Mask active              = true) const;
 
     /**
      * \brief Test for an intersection and return detailed information
@@ -591,7 +602,7 @@ public:
      */
     SurfaceInteraction3f ray_intersect(const Ray3f &ray,
                                        uint32_t ray_flags = +RayFlags::All,
-                                       Mask active = true) const;
+                                       Mask active        = true) const;
 
     //! @}
     // =============================================================
@@ -617,7 +628,7 @@ public:
     virtual bool ray_test_scalar(const ScalarRay3f &ray) const;
 
     /// Macro to declare packet versions of the scalar routine above
-    #define MI_DECLARE_RAY_INTERSECT_PACKET(N)                                  \
+#define MI_DECLARE_RAY_INTERSECT_PACKET(N)                                  \
         using FloatP##N   = dr::Packet<dr::scalar_t<Float>, N>;                 \
         using UInt32P##N  = dr::uint32_array_t<FloatP##N>;                      \
         using MaskP##N    = dr::mask_t<FloatP##N>;                              \
@@ -685,7 +696,8 @@ public:
      * \param name
      *     Name of the attribute
      */
-    virtual Mask has_attribute(const std::string &name, Mask active = true) const;
+    virtual Mask has_attribute(const std::string &name,
+                               Mask active = true) const;
 
     /**
      * \brief Evaluate a specific shape attribute at the given surface interaction.
@@ -756,8 +768,8 @@ public:
      * The default implementation throws.
      */
     virtual SurfaceInteraction3f eval_parameterization(const Point2f &uv,
-                                                       uint32_t ray_flags = +RayFlags::All,
-                                                       Mask active = true) const;
+        uint32_t ray_flags = +RayFlags::All,
+        Mask active        = true) const;
 
     //! @}
     // =============================================================
@@ -770,7 +782,7 @@ public:
     std::string id() const override { return m_id; }
 
     /// Set a string identifier
-    void set_id(const std::string& id) override { m_id = id; };
+    void set_id(const std::string &id) override { m_id = id; };
 
     /// Is this shape a triangle mesh?
     bool is_mesh() const { return (shape_type() == +ShapeType::Mesh); };
@@ -779,43 +791,68 @@ public:
     uint32_t shape_type() const { return (uint32_t) m_shape_type; }
 
     /// Is this shape a shapegroup?
-    bool is_shapegroup() const { return class_()->name() == "ShapeGroupPlugin"; };
+    bool is_shapegroup() const {
+        return class_()->name() == "ShapeGroupPlugin";
+    };
 
     /// Is this shape an instance?
     bool is_instance() const { return (shape_type() == +ShapeType::Instance); };
 
     /// Does the surface of this shape mark a medium transition?
-    bool is_medium_transition() const { return m_interior_medium.get() != nullptr ||
-                                               m_exterior_medium.get() != nullptr; }
+    bool is_medium_transition() const {
+        return m_interior_medium.get() != nullptr ||
+               m_exterior_medium.get() != nullptr;
+    }
 
     /// Return the medium that lies on the interior of this shape
-    const Medium *interior_medium(Mask /*unused*/ = true) const { return m_interior_medium.get(); }
+    const Medium *interior_medium(Mask /*unused*/  = true) const {
+        return m_interior_medium.get();
+    }
 
     /// Return the medium that lies on the exterior of this shape
-    const Medium *exterior_medium(Mask /*unused*/ = true) const { return m_exterior_medium.get(); }
+    const Medium *exterior_medium(Mask /*unused*/  = true) const {
+        return m_exterior_medium.get();
+    }
 
     /// Return the shape's BSDF
-    const BSDF *bsdf(Mask /*unused*/ = true) const { return m_bsdf.get(); }
+    const BSDF *bsdf(Mask /*unused*/  = true) const { return m_bsdf.get(); }
 
     /// Return the shape's BSDF
-    BSDF *bsdf(Mask /*unused*/ = true) { return m_bsdf.get(); }
+    BSDF *bsdf(Mask /*unused*/  = true) { return m_bsdf.get(); }
+
+    Subsurface *subsurface(Mask /*unused*/  = true) {
+        return m_subsurface.get();
+    }
+
+    const Subsurface *subsurface(Mask /*unused*/  = true) const {
+        return m_subsurface.get();
+    }
+
+    /// Return hash sub surface scattering
+    bool has_subsurface() const { return (bool) m_subsurface; }
+
 
     /// Is this shape also an area emitter?
     bool is_emitter() const { return (bool) m_emitter; }
 
     /// Return the area emitter associated with this shape (if any)
-    const Emitter *emitter(Mask /*unused*/ = true) const { return m_emitter.get(); }
+    const Emitter *emitter(Mask /*unused*/  = true) const {
+        return m_emitter.get();
+    }
 
     /// Return the area emitter associated with this shape (if any)
-    Emitter *emitter(Mask /*unused*/ = true) { return m_emitter.get(); }
+    Emitter *emitter(Mask /*unused*/  = true) { return m_emitter.get(); }
 
     /// Is this shape also an area sensor?
     bool is_sensor() const { return (bool) m_sensor; }
 
     /// Return the area sensor associated with this shape (if any)
-    const Sensor *sensor(Mask /*unused*/ = true) const { return m_sensor.get(); }
+    const Sensor *sensor(Mask /*unused*/  = true) const {
+        return m_sensor.get();
+    }
+
     /// Return the area sensor associated with this shape (if any)
-    Sensor *sensor(Mask /*unused*/ = true) { return m_sensor.get(); }
+    Sensor *sensor(Mask /*unused*/  = true) { return m_sensor.get(); }
 
     /**
      * \brief Returns the number of sub-primitives that make up this shape
@@ -865,7 +902,7 @@ public:
      * The default implementation assumes that an implicit Shape (custom primitive
      * build type) is begin constructed, with its GPU data stored at \ref m_optix_data_ptr.
      */
-    virtual void optix_build_input(OptixBuildInput& build_input) const;
+    virtual void optix_build_input(OptixBuildInput &build_input) const;
 
     /**
      * \brief Prepares and fills the \ref OptixInstance(s) associated with this
@@ -893,10 +930,10 @@ public:
      *
      * The default implementation throws an exception.
      */
-    virtual void optix_prepare_ias(const OptixDeviceContext& /*context*/,
-                                   std::vector<OptixInstance>& /*instances*/,
+    virtual void optix_prepare_ias(const OptixDeviceContext & /*context*/,
+                                   std::vector<OptixInstance> & /*instances*/,
                                    uint32_t /*instance_id*/,
-                                   const ScalarTransform4f& /*transf*/);
+                                   const ScalarTransform4f & /*transf*/);
 
     /**
      * \brief Creates and appends the HitGroupSbtRecord(s) associated with this
@@ -920,12 +957,14 @@ public:
      * program_groups array (the actual program group index is inferred by the
      * type of the Shape, see \ref get_shape_descr_idx()).
      */
-    virtual void optix_fill_hitgroup_records(std::vector<HitGroupSbtRecord> &hitgroup_records,
-                                             const OptixProgramGroup *program_groups);
+    virtual void optix_fill_hitgroup_records(
+        std::vector<HitGroupSbtRecord> &hitgroup_records,
+        const OptixProgramGroup *program_groups);
 #endif
 
     void traverse(TraversalCallback *callback) override;
-    void parameters_changed(const std::vector<std::string> &/*keys*/ = {}) override;
+    void parameters_changed(
+        const std::vector<std::string> &/*keys*/ = {}) override;
 
     /// Return whether the shape's geometry has changed
     bool dirty() const { return m_dirty; }
@@ -952,13 +991,17 @@ public:
 
 protected:
     Shape(const Properties &props);
-    inline Shape() { }
+
+    inline Shape() {
+    }
 
 protected:
     virtual void initialize();
     std::string get_children_string() const;
+
 protected:
     ref<BSDF> m_bsdf;
+    ref<Subsurface> m_subsurface;
     ref<Emitter> m_emitter;
     ref<Sensor> m_sensor;
     ref<Medium> m_interior_medium;
@@ -980,7 +1023,7 @@ protected:
 
 #if defined(MI_ENABLE_CUDA)
     /// OptiX hitgroup data buffer
-    void* m_optix_data_ptr = nullptr;
+    void *m_optix_data_ptr = nullptr;
 #endif
 
 protected:
@@ -995,25 +1038,27 @@ protected:
 //! @{ \name Misc implementations
 // -----------------------------------------------------------------------
 
-template <typename Float, typename Spectrum>
-std::ostream &operator<<(std::ostream &os,
-                         const SilhouetteSample<Float, Spectrum> &ss) {
+template <typename Float, typename Spectrum> std::ostream &operator<<(
+    std::ostream &os,
+    const SilhouetteSample<Float, Spectrum> &ss) {
     os << "SilhouetteSample[" << std::endl
-       << "  p = " << string::indent(ss.p, 6) << "," << std::endl
-       << "  discontinuity_type = " << string::indent(ss.discontinuity_type, 23) << "," << std::endl
-       << "  d = " << string::indent(ss.d, 6) << "," << std::endl
-       << "  silhouette_d = " << string::indent(ss.silhouette_d, 17) << "," << std::endl
-       << "  n = " << string::indent(ss.n, 6) << "," << std::endl
-       << "  prim_index = " << ss.prim_index << "," << std::endl
-       << "  scene_index = " << ss.scene_index << "," << std::endl
-       << "  flags = " << ss.flags << "," << std::endl
-       << "  projection_index = " << ss.projection_index << "," << std::endl
-       << "  uv = " << string::indent(ss.uv, 7) << "," << std::endl
-       << "  pdf = " << ss.pdf << "," << std::endl
-       << "  shape = " << string::indent(ss.shape) << "," << std::endl
-       << "  foreshortening = " << ss.foreshortening << "," << std::endl
-       << "  offset = " << ss.offset << "," << std::endl
-       << "]";
+        << "  p = " << string::indent(ss.p, 6) << "," << std::endl
+        << "  discontinuity_type = " << string::indent(
+            ss.discontinuity_type, 23) << "," << std::endl
+        << "  d = " << string::indent(ss.d, 6) << "," << std::endl
+        << "  silhouette_d = " << string::indent(ss.silhouette_d, 17) << "," <<
+        std::endl
+        << "  n = " << string::indent(ss.n, 6) << "," << std::endl
+        << "  prim_index = " << ss.prim_index << "," << std::endl
+        << "  scene_index = " << ss.scene_index << "," << std::endl
+        << "  flags = " << ss.flags << "," << std::endl
+        << "  projection_index = " << ss.projection_index << "," << std::endl
+        << "  uv = " << string::indent(ss.uv, 7) << "," << std::endl
+        << "  pdf = " << ss.pdf << "," << std::endl
+        << "  shape = " << string::indent(ss.shape) << "," << std::endl
+        << "  foreshortening = " << ss.foreshortening << "," << std::endl
+        << "  offset = " << ss.offset << "," << std::endl
+        << "]";
     return os;
 }
 
@@ -1102,6 +1147,7 @@ MI_CALL_TEMPLATE_BEGIN(Shape)
     DRJIT_CALL_GETTER(emitter)
     DRJIT_CALL_GETTER(sensor)
     DRJIT_CALL_GETTER(bsdf)
+    DRJIT_CALL_GETTER(subsurface)
     DRJIT_CALL_GETTER(interior_medium)
     DRJIT_CALL_GETTER(exterior_medium)
     DRJIT_CALL_GETTER(silhouette_discontinuity_types)
@@ -1112,6 +1158,7 @@ MI_CALL_TEMPLATE_BEGIN(Shape)
     auto is_mesh() const { return shape_type() == (uint32_t) mitsuba::ShapeType::Mesh; }
     auto is_medium_transition() const { return interior_medium() != nullptr ||
                                                exterior_medium() != nullptr; }
+    auto has_subsurface() const { return true; } // TODO: implement
 MI_CALL_TEMPLATE_END(Shape)
 
 //! @}

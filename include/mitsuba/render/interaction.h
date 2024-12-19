@@ -70,8 +70,7 @@ MI_DECLARE_ENUM_OPERATORS(RayFlags)
 // -----------------------------------------------------------------------------
 
 /// Generic surface interaction data structure
-template <typename Float_, typename Spectrum_>
-struct Interaction {
+template <typename Float_, typename Spectrum_> struct Interaction {
     // =============================================================
     //! @{ \name Type declarations
     // =============================================================
@@ -113,7 +112,8 @@ struct Interaction {
     /// Constructor
     Interaction(Float t, Float time, const Wavelength &wavelengths,
                 const Point3f &p, const Normal3f &n = 0.f)
-        : t(t), time(time), wavelengths(wavelengths), p(p), n(n) { }
+        : t(t), time(time), wavelengths(wavelengths), p(p), n(n) {
+    }
 
     /// Virtual destructor
     virtual ~Interaction() = default;
@@ -143,7 +143,7 @@ struct Interaction {
 
     /// Spawn a finite ray towards the given position
     Ray3f spawn_ray_to(const Point3f &t) const {
-        Point3f o = offset_p(t - p);
+        Point3f o  = offset_p(t - p);
         Vector3f d = t - o;
         Float dist = dr::norm(d);
         d /= dist;
@@ -164,19 +164,18 @@ private:
      */
     Point3f offset_p(const Vector3f &d) const {
         Float mag = (1.f + dr::max(dr::abs(p))) * math::RayEpsilon<Float>;
-        mag = dr::detach(dr::mulsign(mag, dr::dot(n, d)));
+        mag       = dr::detach(dr::mulsign(mag, dr::dot(n, d)));
         return dr::fmadd(mag, dr::detach(n), p);
     }
 };
 
 // -----------------------------------------------------------------------------
 
-template <typename Float_, typename Shape_>
-struct PreliminaryIntersection;
+template <typename Float_, typename Shape_> struct PreliminaryIntersection;
 
 /// Stores information related to a surface scattering interaction
-template <typename Float_, typename Spectrum_>
-struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
+template <typename Float_, typename Spectrum_> struct SurfaceInteraction
+    : Interaction<Float_, Spectrum_> {
 
     // =============================================================
     //! @{ \name Type declarations
@@ -246,7 +245,8 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                                 const Wavelength &wavelengths)
         : Base(0.f, ps.time, wavelengths, ps.p, ps.n), uv(ps.uv),
           sh_frame(Frame3f(ps.n)), dp_du(0), dp_dv(0), dn_du(0), dn_dv(0),
-          duv_dx(0), duv_dy(0), wi(0), prim_index(0) {}
+          duv_dx(0), duv_dy(0), wi(0), prim_index(0) {
+    }
 
     /**
      * This callback method is invoked by dr::zeros<>, and takes care of fields that deviate
@@ -254,23 +254,23 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
      */
     void zero_(size_t size = 1) override {
         Interaction<Float_, Spectrum_>::zero_(size);
-        uv          = dr::zeros<Point2f>(size);
-        sh_frame    = dr::zeros<Frame3f>(size);
-        dp_du       = dr::zeros<Vector3f>(size);
-        dp_dv       = dr::zeros<Vector3f>(size);
-        dn_du       = dr::zeros<Vector3f>(size);
-        dn_dv       = dr::zeros<Vector3f>(size);
-        duv_dx      = dr::zeros<Vector2f>(size);
-        duv_dy      = dr::zeros<Vector2f>(size);
-        wi          = dr::zeros<Vector3f>(size);
-        prim_index  = dr::zeros<Index>(size);
+        uv         = dr::zeros<Point2f>(size);
+        sh_frame   = dr::zeros<Frame3f>(size);
+        dp_du      = dr::zeros<Vector3f>(size);
+        dp_dv      = dr::zeros<Vector3f>(size);
+        dn_du      = dr::zeros<Vector3f>(size);
+        dn_dv      = dr::zeros<Vector3f>(size);
+        duv_dx     = dr::zeros<Vector2f>(size);
+        duv_dy     = dr::zeros<Vector2f>(size);
+        wi         = dr::zeros<Vector3f>(size);
+        prim_index = dr::zeros<Index>(size);
 
         if constexpr (dr::is_jit_v<Float_>) {
-            shape       = dr::zeros<ShapePtr>(size);
-            instance    = dr::zeros<ShapePtr>(size);
+            shape    = dr::zeros<ShapePtr>(size);
+            instance = dr::zeros<ShapePtr>(size);
         } else {
-            shape       = nullptr;
-            instance    = nullptr;
+            shape    = nullptr;
+            instance = nullptr;
         }
     }
 
@@ -328,7 +328,7 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
      */
     MediumPtr target_medium(const Float &cos_theta) const {
         return dr::select(cos_theta > 0, shape->exterior_medium(),
-                                         shape->interior_medium());
+                          shape->interior_medium());
     }
 
     /**
@@ -345,6 +345,13 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
     // Returns the BSDF of the intersected shape
     BSDFPtr bsdf() const { return shape->bsdf(); }
 
+    bool has_subsurface() const { return static_cast<bool>(shape->has_subsurface());  }
+
+    Spectrum subsurface_sample(const Scene *scene, Sampler *sampler,
+                               const Vector3f &d, UInt32 depth) const {
+        return shape->subsurface()->sample(scene, sampler, *this, d, depth);
+    }
+
     /// Computes texture coordinate partials
     void compute_uv_partials(const RayDifferential3f &ray) {
         if (!ray.has_differentials)
@@ -360,10 +367,10 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                  dp_dy = dr::fmadd(ray.d_y, t_y, ray.o_y) - p;
 
         // Solve a least squares problem to turn this into UV coordinates
-        Float a00 = dr::dot(dp_du, dp_du),
-              a01 = dr::dot(dp_du, dp_dv),
-              a11 = dr::dot(dp_dv, dp_dv),
-              inv_det = dr::rcp(dr::fmsub(a00, a11, a01*a01));
+        Float a00     = dr::dot(dp_du, dp_du),
+              a01     = dr::dot(dp_du, dp_dv),
+              a11     = dr::dot(dp_dv, dp_dv),
+              inv_det = dr::rcp(dr::fmsub(a00, a11, a01 * a01));
 
         Float b0x = dr::dot(dp_du, dp_dx),
               b1x = dr::dot(dp_dv, dp_dx),
@@ -411,15 +418,22 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
             Vector3f in_forward_world  = to_world(in_forward_local),
                      out_forward_world = to_world(out_forward_local);
 
-            Vector3f in_basis_current = to_world(mueller::stokes_basis(in_forward_local)),
-                     in_basis_target  = mueller::stokes_basis(in_forward_world);
+            Vector3f in_basis_current = to_world(
+                         mueller::stokes_basis(in_forward_local)),
+                     in_basis_target = mueller::stokes_basis(in_forward_world);
 
-            Vector3f out_basis_current = to_world(mueller::stokes_basis(out_forward_local)),
-                     out_basis_target  = mueller::stokes_basis(out_forward_world);
+            Vector3f out_basis_current = to_world(
+                         mueller::stokes_basis(out_forward_local)),
+                     out_basis_target =
+                         mueller::stokes_basis(out_forward_world);
 
             return mueller::rotate_mueller_basis(M_local,
-                                                 in_forward_world, in_basis_current, in_basis_target,
-                                                 out_forward_world, out_basis_current, out_basis_target);
+                                                 in_forward_world,
+                                                 in_basis_current,
+                                                 in_basis_target,
+                                                 out_forward_world,
+                                                 out_basis_current,
+                                                 out_basis_target);
         } else {
             DRJIT_MARK_USED(in_forward_local);
             DRJIT_MARK_USED(out_forward_local);
@@ -452,18 +466,25 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
                               const Vector3f &in_forward_world,
                               const Vector3f &out_forward_world) const {
         if constexpr (is_polarized_v<Spectrum>) {
-            Vector3f in_forward_local = to_local(in_forward_world),
+            Vector3f in_forward_local  = to_local(in_forward_world),
                      out_forward_local = to_local(out_forward_world);
 
-            Vector3f in_basis_current = to_local(mueller::stokes_basis(in_forward_world)),
-                     in_basis_target  = mueller::stokes_basis(in_forward_local);
+            Vector3f in_basis_current = to_local(
+                         mueller::stokes_basis(in_forward_world)),
+                     in_basis_target = mueller::stokes_basis(in_forward_local);
 
-            Vector3f out_basis_current = to_local(mueller::stokes_basis(out_forward_world)),
-                     out_basis_target  = mueller::stokes_basis(out_forward_local);
+            Vector3f out_basis_current = to_local(
+                         mueller::stokes_basis(out_forward_world)),
+                     out_basis_target =
+                         mueller::stokes_basis(out_forward_local);
 
             return mueller::rotate_mueller_basis(M_world,
-                                                 in_forward_local, in_basis_current, in_basis_target,
-                                                 out_forward_local, out_basis_current, out_basis_target);
+                                                 in_forward_local,
+                                                 in_basis_current,
+                                                 in_basis_target,
+                                                 out_forward_local,
+                                                 out_basis_current,
+                                                 out_basis_target);
         } else {
             return M_world;
         }
@@ -517,8 +538,8 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
     }
 
     /// Convenience operator for masking
-    template <typename Array, drjit::enable_if_mask_t<Array> = 0>
-    auto operator[](const Array &array) {
+    template <typename Array, drjit::enable_if_mask_t<Array>  = 0> auto operator
+    [](const Array &array) {
         return dr::masked(*this, array);
     }
 
@@ -533,8 +554,8 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
 // -----------------------------------------------------------------------------
 
 /// Stores information related to a medium scattering interaction
-template <typename Float_, typename Spectrum_>
-struct MediumInteraction : Interaction<Float_, Spectrum_> {
+template <typename Float_, typename Spectrum_> struct MediumInteraction
+    : Interaction<Float_, Spectrum_> {
 
     // =============================================================
     //! @{ \name Type declarations
@@ -591,9 +612,9 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
         mint                = dr::zeros<Float>(size);
 
         if constexpr (dr::is_jit_v<Float_>) {
-            medium      = dr::zeros<MediumPtr>(size);
+            medium = dr::zeros<MediumPtr>(size);
         } else {
-            medium      = nullptr;
+            medium = nullptr;
         }
     }
 
@@ -627,8 +648,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
  * If the intersection is deemed relevant, detailed intersection information can later be
  * obtained via the  \ref create_surface_interaction() method.
  */
-template <typename Float_, typename Shape_>
-struct PreliminaryIntersection {
+template <typename Float_, typename Shape_> struct PreliminaryIntersection {
 
     // =============================================================
     //! @{ \name Type declarations
@@ -639,8 +659,8 @@ struct PreliminaryIntersection {
 
     MI_IMPORT_CORE_TYPES()
 
-    using Index = typename CoreAliases::UInt32;
-    using Ray3f = typename Shape_::Ray3f;
+    using Index    = typename CoreAliases::UInt32;
+    using Ray3f    = typename Shape_::Ray3f;
     using Spectrum = typename Ray3f::Spectrum;
 
     //! @}
@@ -687,11 +707,11 @@ struct PreliminaryIntersection {
         shape_index = dr::zeros<Index>(size);
 
         if constexpr (dr::is_jit_v<Float_>) {
-            shape       = dr::zeros<ShapePtr>(size);
-            instance    = dr::zeros<ShapePtr>(size);
+            shape    = dr::zeros<ShapePtr>(size);
+            instance = dr::zeros<ShapePtr>(size);
         } else {
-            shape       = nullptr;
-            instance    = nullptr;
+            shape    = nullptr;
+            instance = nullptr;
         }
     }
 
@@ -712,9 +732,11 @@ struct PreliminaryIntersection {
      */
     auto compute_surface_interaction(const Ray3f &ray,
                                      uint32_t ray_flags = +RayFlags::All,
-                                     Mask active = true) {
+                                     Mask active        = true) {
         if constexpr (!std::is_same_v<Shape_, Shape<Float, Spectrum>>) {
-            Throw("PreliminaryIntersection::compute_surface_interaction(): not implemented!");
+            Throw(
+                "PreliminaryIntersection::compute_surface_interaction(): not implemented!")
+            ;
         } else {
             using SurfaceInteraction3f = SurfaceInteraction<Float, Spectrum>;
             using ShapePtr = typename SurfaceInteraction3f::ShapePtr;
@@ -722,8 +744,8 @@ struct PreliminaryIntersection {
             active &= is_valid();
             if (dr::none_or<false>(active)) {
                 SurfaceInteraction3f si = dr::zeros<SurfaceInteraction3f>();
-                si.wi = -ray.d;
-                si.wavelengths = ray.wavelengths;
+                si.wi                   = -ray.d;
+                si.wavelengths          = ray.wavelengths;
                 return si;
             }
 
@@ -731,7 +753,8 @@ struct PreliminaryIntersection {
 
             ShapePtr target = dr::select(instance == nullptr, shape, instance);
             SurfaceInteraction3f si =
-                target->compute_surface_interaction(ray, *this, ray_flags, 0u, active);
+                target->compute_surface_interaction(
+                    ray, *this, ray_flags, 0u, active);
             si.finalize_surface_interaction(*this, ray, ray_flags, active);
 
             return si;
@@ -747,85 +770,93 @@ struct PreliminaryIntersection {
 
 // -----------------------------------------------------------------------------
 
-template <typename Float, typename Spectrum>
-std::ostream &operator<<(std::ostream &os, const Interaction<Float, Spectrum> &it) {
+template <typename Float, typename Spectrum> std::ostream &operator<<(
+    std::ostream &os, const Interaction<Float, Spectrum> &it) {
     if (dr::none(it.is_valid())) {
         os << "Interaction[invalid]";
     } else {
         os << "Interaction[" << std::endl
-           << "  t = " << it.t << "," << std::endl
-           << "  time = " << it.time << "," << std::endl
-           << "  wavelengths = " << it.wavelengths << "," << std::endl
-           << "  p = " << string::indent(it.p, 6) << std::endl
-           << "]";
+            << "  t = " << it.t << "," << std::endl
+            << "  time = " << it.time << "," << std::endl
+            << "  wavelengths = " << it.wavelengths << "," << std::endl
+            << "  p = " << string::indent(it.p, 6) << std::endl
+            << "]";
     }
     return os;
 }
 
-template <typename Float, typename Spectrum>
-std::ostream &operator<<(std::ostream &os, const SurfaceInteraction<Float, Spectrum> &it) {
+template <typename Float, typename Spectrum> std::ostream &operator<<(
+    std::ostream &os, const SurfaceInteraction<Float, Spectrum> &it) {
     if (dr::none(it.is_valid())) {
         os << "SurfaceInteraction[invalid]";
     } else {
         os << "SurfaceInteraction[" << std::endl
-           << "  t = " << it.t << "," << std::endl
-           << "  time = " << it.time << "," << std::endl
-           << "  wavelengths = " << string::indent(it.wavelengths, 16) << "," << std::endl
-           << "  p = " << string::indent(it.p, 6) << "," << std::endl
-           << "  shape = " << string::indent(it.shape, 2) << "," << std::endl
-           << "  uv = " << string::indent(it.uv, 7) << "," << std::endl
-           << "  n = " << string::indent(it.n, 6) << "," << std::endl
-           << "  sh_frame = " << string::indent(it.sh_frame, 2) << "," << std::endl
-           << "  dp_du = " << string::indent(it.dp_du, 10) << "," << std::endl
-           << "  dp_dv = " << string::indent(it.dp_dv, 10) << "," << std::endl;
+            << "  t = " << it.t << "," << std::endl
+            << "  time = " << it.time << "," << std::endl
+            << "  wavelengths = " << string::indent(it.wavelengths, 16) << ","
+            << std::endl
+            << "  p = " << string::indent(it.p, 6) << "," << std::endl
+            << "  shape = " << string::indent(it.shape, 2) << "," << std::endl
+            << "  uv = " << string::indent(it.uv, 7) << "," << std::endl
+            << "  n = " << string::indent(it.n, 6) << "," << std::endl
+            << "  sh_frame = " << string::indent(it.sh_frame, 2) << "," <<
+            std::endl
+            << "  dp_du = " << string::indent(it.dp_du, 10) << "," << std::endl
+            << "  dp_dv = " << string::indent(it.dp_dv, 10) << "," << std::endl;
 
         if (it.has_n_partials())
-            os << "  dn_du = " << string::indent(it.dn_du, 11) << "," << std::endl
-               << "  dn_dv = " << string::indent(it.dn_dv, 11) << "," << std::endl;
+            os << "  dn_du = " << string::indent(it.dn_du, 11) << "," <<
+                std::endl
+                << "  dn_dv = " << string::indent(it.dn_dv, 11) << "," <<
+                std::endl;
 
         if (it.has_uv_partials())
-            os << "  duv_dx = " << string::indent(it.duv_dx, 11) << "," << std::endl
-               << "  duv_dy = " << string::indent(it.duv_dy, 11) << "," << std::endl;
+            os << "  duv_dx = " << string::indent(it.duv_dx, 11) << "," <<
+                std::endl
+                << "  duv_dy = " << string::indent(it.duv_dy, 11) << "," <<
+                std::endl;
 
         os << "  wi = " << string::indent(it.wi, 7) << "," << std::endl
-           << "  prim_index = " << it.prim_index << "," << std::endl
-           << "  instance = " << string::indent(it.instance, 13) << std::endl
-           << "]";
+            << "  prim_index = " << it.prim_index << "," << std::endl
+            << "  instance = " << string::indent(it.instance, 13) << std::endl
+            << "]";
     }
     return os;
 }
 
-template <typename Float, typename Spectrum>
-std::ostream &operator<<(std::ostream &os, const MediumInteraction<Float, Spectrum> &it) {
+template <typename Float, typename Spectrum> std::ostream &operator<<(
+    std::ostream &os, const MediumInteraction<Float, Spectrum> &it) {
     if (dr::none(it.is_valid())) {
         os << "MediumInteraction[invalid]";
     } else {
         os << "MediumInteraction[" << std::endl
-           << "  t = " << it.t << "," << std::endl
-           << "  time = " << it.time << "," << std::endl
-           << "  wavelengths = " << it.wavelengths << "," << std::endl
-           << "  p = " << string::indent(it.p, 6) << "," << std::endl
-           << "  medium = " << string::indent(it.medium, 2) << "," << std::endl
-           << "  sh_frame = " << string::indent(it.sh_frame, 2) << "," << std::endl
-           << "  wi = " << string::indent(it.wi, 7) << "," << std::endl
-           << "]";
+            << "  t = " << it.t << "," << std::endl
+            << "  time = " << it.time << "," << std::endl
+            << "  wavelengths = " << it.wavelengths << "," << std::endl
+            << "  p = " << string::indent(it.p, 6) << "," << std::endl
+            << "  medium = " << string::indent(it.medium, 2) << "," << std::endl
+            << "  sh_frame = " << string::indent(it.sh_frame, 2) << "," <<
+            std::endl
+            << "  wi = " << string::indent(it.wi, 7) << "," << std::endl
+            << "]";
     }
     return os;
 }
 
-template <typename Float, typename Shape>
-std::ostream &operator<<(std::ostream &os, const PreliminaryIntersection<Float, Shape> &pi) {
+template <typename Float, typename Shape> std::ostream &operator<<(
+    std::ostream &os, const PreliminaryIntersection<Float, Shape> &pi) {
     if (dr::none(pi.is_valid())) {
         os << "PreliminaryIntersection[invalid]";
     } else {
         os << "PreliminaryIntersection[" << std::endl
-           << "  t = " << pi.t << "," << std::endl
-           << "  prim_uv = " << pi.prim_uv << "," << std::endl
-           << "  prim_index = " << pi.prim_index << "," << std::endl
-           << "  shape_index = " << pi.shape_index << "," << std::endl
-           << "  shape = " << string::indent(pi.shape, 6) << "," << std::endl
-           << "  instance = " << string::indent(pi.instance, 6) << "," << std::endl
-           << "]";
+            << "  t = " << pi.t << "," << std::endl
+            << "  prim_uv = " << pi.prim_uv << "," << std::endl
+            << "  prim_index = " << pi.prim_index << "," << std::endl
+            << "  shape_index = " << pi.shape_index << "," << std::endl
+            << "  shape = " << string::indent(pi.shape, 6) << "," << std::endl
+            << "  instance = " << string::indent(pi.instance, 6) << "," <<
+            std::endl
+            << "]";
     }
     return os;
 }

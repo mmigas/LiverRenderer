@@ -8,6 +8,7 @@ NAMESPACE_BEGIN(mitsuba)
 
 struct BSDFContext;
 template <typename Float, typename Spectrum> class BSDF;
+template <typename Float, typename Spectrum> class Subsurface;
 template <typename Float, typename Spectrum> class OptixDenoiser;
 template <typename Float, typename Spectrum> class Emitter;
 template <typename Float, typename Spectrum> class Endpoint;
@@ -42,71 +43,77 @@ template <typename Float, typename Spectrum> struct PhaseFunctionContext;
 template <typename Float, typename Spectrum> struct Interaction;
 template <typename Float, typename Spectrum> struct MediumInteraction;
 template <typename Float, typename Spectrum> struct SurfaceInteraction;
-template <typename Float, typename Shape>    struct PreliminaryIntersection;
+template <typename Float, typename Shape> struct PreliminaryIntersection;
 
 template <typename Float_, typename Spectrum_> struct RenderAliases {
-    using Float                     = Float_;
-    using Spectrum                  = Spectrum_;
+    using Float    = Float_;
+    using Spectrum = Spectrum_;
 
     /// Strip away any masking-related wrappers from 'Float' and 'Spectrum'
-    using FloatU                 = underlying_t<Float>;
-    using SpectrumU              = underlying_t<Spectrum>;
+    using FloatU    = underlying_t<Float>;
+    using SpectrumU = underlying_t<Spectrum>;
 
-    using Wavelength                = wavelength_t<Spectrum>;
-    using UnpolarizedSpectrum       = unpolarized_spectrum_t<Spectrum>;
+    using Wavelength          = wavelength_t<Spectrum>;
+    using UnpolarizedSpectrum = unpolarized_spectrum_t<Spectrum>;
 
-    using StokesVector4f            = StokesVector<UnpolarizedSpectrum>;
-    using MuellerMatrix4f           = MuellerMatrix<UnpolarizedSpectrum>;
+    using StokesVector4f  = StokesVector<UnpolarizedSpectrum>;
+    using MuellerMatrix4f = MuellerMatrix<UnpolarizedSpectrum>;
 
-    using Ray3f                     = Ray<Point<Float, 3>, Spectrum>;
-    using RayDifferential3f         = RayDifferential<Point<Float, 3>, Spectrum>;
+    using Ray3f             = Ray<Point<Float, 3>, Spectrum>;
+    using RayDifferential3f = RayDifferential<Point<Float, 3>, Spectrum>;
 
-    using PositionSample3f          = PositionSample<Float, Spectrum>;
-    using DirectionSample3f         = DirectionSample<Float, Spectrum>;
-    using BSDFSample3f              = BSDFSample3<Float, Spectrum>;
-    using SilhouetteSample3f        = SilhouetteSample<Float, Spectrum>;
-    using PhaseFunctionContext      = mitsuba::PhaseFunctionContext<Float, Spectrum>;
-    using Interaction3f             = Interaction<Float, Spectrum>;
-    using MediumInteraction3f       = MediumInteraction<Float, Spectrum>;
-    using SurfaceInteraction3f      = SurfaceInteraction<Float, Spectrum>;
-    using PreliminaryIntersection3f = PreliminaryIntersection<Float, mitsuba::Shape<FloatU, SpectrumU>>;
+    using PositionSample3f = PositionSample<Float, Spectrum>;
+    using DirectionSample3f = DirectionSample<Float, Spectrum>;
+    using BSDFSample3f = BSDFSample3<Float, Spectrum>;
+    using SilhouetteSample3f = SilhouetteSample<Float, Spectrum>;
+    using PhaseFunctionContext = mitsuba::PhaseFunctionContext<Float, Spectrum>;
+    using Interaction3f = Interaction<Float, Spectrum>;
+    using MediumInteraction3f = MediumInteraction<Float, Spectrum>;
+    using SurfaceInteraction3f = SurfaceInteraction<Float, Spectrum>;
+    using PreliminaryIntersection3f = PreliminaryIntersection<
+        Float, mitsuba::Shape<FloatU, SpectrumU>>;
 
     using Scene                  = mitsuba::Scene<FloatU, SpectrumU>;
     using Sampler                = mitsuba::Sampler<FloatU, SpectrumU>;
-    using MicrofacetDistribution = mitsuba::MicrofacetDistribution<FloatU, SpectrumU>;
-    using Shape                  = mitsuba::Shape<FloatU, SpectrumU>;
-    using ShapeGroup             = mitsuba::ShapeGroup<FloatU, SpectrumU>;
-    using ShapeKDTree            = mitsuba::ShapeKDTree<FloatU, SpectrumU>;
-    using Mesh                   = mitsuba::Mesh<FloatU, SpectrumU>;
-    using Integrator             = mitsuba::Integrator<FloatU, SpectrumU>;
-    using SamplingIntegrator     = mitsuba::SamplingIntegrator<FloatU, SpectrumU>;
-    using MonteCarloIntegrator   = mitsuba::MonteCarloIntegrator<FloatU, SpectrumU>;
-    using AdjointIntegrator      = mitsuba::AdjointIntegrator<FloatU, SpectrumU>;
-    using BSDF                   = mitsuba::BSDF<FloatU, SpectrumU>;
-    using OptixDenoiser          = mitsuba::OptixDenoiser<FloatU, SpectrumU>;
-    using Sensor                 = mitsuba::Sensor<FloatU, SpectrumU>;
-    using ProjectiveCamera       = mitsuba::ProjectiveCamera<FloatU, SpectrumU>;
-    using Emitter                = mitsuba::Emitter<FloatU, SpectrumU>;
-    using Endpoint               = mitsuba::Endpoint<FloatU, SpectrumU>;
-    using Medium                 = mitsuba::Medium<FloatU, SpectrumU>;
-    using PhaseFunction          = mitsuba::PhaseFunction<FloatU, SpectrumU>;
-    using Film                   = mitsuba::Film<FloatU, SpectrumU>;
-    using ImageBlock             = mitsuba::ImageBlock<FloatU, SpectrumU>;
-    using ReconstructionFilter   = mitsuba::ReconstructionFilter<FloatU, SpectrumU>;
-    using Texture                = mitsuba::Texture<FloatU, SpectrumU>;
-    using Volume                 = mitsuba::Volume<FloatU, SpectrumU>;
-    using VolumeGrid             = mitsuba::VolumeGrid<FloatU, SpectrumU>;
+    using MicrofacetDistribution = mitsuba::MicrofacetDistribution<
+        FloatU, SpectrumU>;
+    using Shape                = mitsuba::Shape<FloatU, SpectrumU>;
+    using ShapeGroup           = mitsuba::ShapeGroup<FloatU, SpectrumU>;
+    using ShapeKDTree          = mitsuba::ShapeKDTree<FloatU, SpectrumU>;
+    using Mesh                 = mitsuba::Mesh<FloatU, SpectrumU>;
+    using Integrator           = mitsuba::Integrator<FloatU, SpectrumU>;
+    using SamplingIntegrator   = mitsuba::SamplingIntegrator<FloatU, SpectrumU>;
+    using MonteCarloIntegrator = mitsuba::MonteCarloIntegrator<
+        FloatU, SpectrumU>;
+    using AdjointIntegrator    = mitsuba::AdjointIntegrator<FloatU, SpectrumU>;
+    using BSDF                 = mitsuba::BSDF<FloatU, SpectrumU>;
+    using Subsurface           = mitsuba::Subsurface<FloatU, SpectrumU>;
+    using OptixDenoiser        = mitsuba::OptixDenoiser<FloatU, SpectrumU>;
+    using Sensor               = mitsuba::Sensor<FloatU, SpectrumU>;
+    using ProjectiveCamera     = mitsuba::ProjectiveCamera<FloatU, SpectrumU>;
+    using Emitter              = mitsuba::Emitter<FloatU, SpectrumU>;
+    using Endpoint             = mitsuba::Endpoint<FloatU, SpectrumU>;
+    using Medium               = mitsuba::Medium<FloatU, SpectrumU>;
+    using PhaseFunction        = mitsuba::PhaseFunction<FloatU, SpectrumU>;
+    using Film                 = mitsuba::Film<FloatU, SpectrumU>;
+    using ImageBlock           = mitsuba::ImageBlock<FloatU, SpectrumU>;
+    using ReconstructionFilter = mitsuba::ReconstructionFilter<
+        FloatU, SpectrumU>;
+    using Texture    = mitsuba::Texture<FloatU, SpectrumU>;
+    using Volume     = mitsuba::Volume<FloatU, SpectrumU>;
+    using VolumeGrid = mitsuba::VolumeGrid<FloatU, SpectrumU>;
 
-    using MeshAttribute          = mitsuba::MeshAttribute<FloatU, SpectrumU>;
+    using MeshAttribute = mitsuba::MeshAttribute<FloatU, SpectrumU>;
 
-    using ObjectPtr              = dr::replace_scalar_t<Float, const Object *>;
-    using BSDFPtr                = dr::replace_scalar_t<Float, const BSDF *>;
-    using MediumPtr              = dr::replace_scalar_t<Float, const Medium *>;
-    using PhaseFunctionPtr       = dr::replace_scalar_t<Float, const PhaseFunction *>;
-    using ShapePtr               = dr::replace_scalar_t<Float, const Shape *>;
-    using MeshPtr                = dr::replace_scalar_t<Float, const Mesh *>;
-    using SensorPtr              = dr::replace_scalar_t<Float, const Sensor *>;
-    using EmitterPtr             = dr::replace_scalar_t<Float, const Emitter *>;
+    using ObjectPtr        = dr::replace_scalar_t<Float, const Object *>;
+    using BSDFPtr          = dr::replace_scalar_t<Float, const BSDF *>;
+    using SubsurfacePtr    = dr::replace_scalar_t<Float, const Subsurface *>;
+    using MediumPtr        = dr::replace_scalar_t<Float, const Medium *>;
+    using PhaseFunctionPtr = dr::replace_scalar_t<Float, const PhaseFunction *>;
+    using ShapePtr         = dr::replace_scalar_t<Float, const Shape *>;
+    using MeshPtr          = dr::replace_scalar_t<Float, const Mesh *>;
+    using SensorPtr        = dr::replace_scalar_t<Float, const Sensor *>;
+    using EmitterPtr       = dr::replace_scalar_t<Float, const Emitter *>;
 };
 
 #define MMI_USING_MEMBERS_MACRO2(x) \
@@ -172,6 +179,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using MonteCarloIntegrator   = typename RenderAliases::MonteCarloIntegrator;                   \
     using AdjointIntegrator      = typename RenderAliases::AdjointIntegrator;                      \
     using BSDF                   = typename RenderAliases::BSDF;                                   \
+    using Subsurface             = typename RenderAliases::Subsurface;                             \
     using OptixDenoiser          = typename RenderAliases::OptixDenoiser;                          \
     using Sensor                 = typename RenderAliases::Sensor;                                 \
     using ProjectiveCamera       = typename RenderAliases::ProjectiveCamera;                       \
@@ -186,6 +194,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using Volume                 = typename RenderAliases::Volume;                                 \
     using ObjectPtr              = typename RenderAliases::ObjectPtr;                              \
     using BSDFPtr                = typename RenderAliases::BSDFPtr;                                \
+    using SubsurfacePtr          = typename RenderAliases::SubsurfacePtr;                          \
     using MediumPtr              = typename RenderAliases::MediumPtr;                              \
     using PhaseFunctionPtr       = typename RenderAliases::PhaseFunctionPtr;                       \
     using ShapePtr               = typename RenderAliases::ShapePtr;                               \

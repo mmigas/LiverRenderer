@@ -49,7 +49,8 @@ add_library(mitsuba-render OBJECT
   ${INC_DIR}/ior.h
   ${INC_DIR}/microfacet.h
   ${INC_DIR}/records.h
-
+        
+  subsurface.cpp   ${INC_DIR}/subsurface.h      
   bsdf.cpp         ${INC_DIR}/bsdf.h
   emitter.cpp      ${INC_DIR}/emitter.h
   endpoint.cpp     ${INC_DIR}/endpoint.h
