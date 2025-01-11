@@ -301,6 +301,7 @@ add_subdirectory(ext)
 include_directories(include
   ${TINYFORMAT_INCLUDE_DIRS}
   ${NANOBIND_INCLUDE_DIRS}
+  ${EIGEN_INCLUDE_DIRS}     
   ${CMAKE_CURRENT_BINARY_DIR}/include
 )
 

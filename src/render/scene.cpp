@@ -311,8 +311,7 @@ NAMESPACE_BEGIN(mitsuba)
     }
 
     MI_VARIANT
-    std::pair<typename Scene<Float, Spectrum>::DirectionSample3f,
-        Spectrum>
+    std::pair<typename Scene<Float, Spectrum>::DirectionSample3f, Spectrum>
     Scene<Float, Spectrum>::sample_emitter_direction(
         const Interaction3f& ref, const Point2f& sample_,
         bool test_visibility, Mask active) const {
@@ -320,7 +319,7 @@ NAMESPACE_BEGIN(mitsuba)
 
         Point2f sample(sample_);
         DirectionSample3f ds;
-        Spectrum spec;
+        Spectrum spec; 
 
         // Potentially disable inlining of emitter sampling (if there is just a single emitter)
         bool vcall_inline = true;

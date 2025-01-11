@@ -49,7 +49,11 @@ add_library(mitsuba-render OBJECT
   ${INC_DIR}/ior.h
   ${INC_DIR}/microfacet.h
   ${INC_DIR}/records.h
-        
+  ${INC_DIR}/polynomials_structs.h 
+  ${INC_DIR}/mediumparameters.h        
+  
+  polynomials.cpp         ${INC_DIR}/polynomials.h 
+  sss_particle_tracer.cpp ${INC_DIR}/sss_particle_tracer.h
   subsurface.cpp   ${INC_DIR}/subsurface.h      
   bsdf.cpp         ${INC_DIR}/bsdf.h
   emitter.cpp      ${INC_DIR}/emitter.h
