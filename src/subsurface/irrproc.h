@@ -11,21 +11,21 @@
 
 
 NAMESPACE_BEGIN(mitsuba)
-    template<typename Float, typename Point, typename Spectrum>
+    template<typename Float, typename Spectrum>
     class IrradianceSample {
     public:
         IrradianceSample() {
         }
 
-        IrradianceSample(const Point& p, const Spectrum& E)
+        IrradianceSample(const Point<Float, 3>& p, const Spectrum& E)
             : p(p), E(E) {
         }
 
-        inline const Point& getPosition() const {
+        inline const Point<Float, 3>& getPosition() const {
             return p;
         }
 
-        Point p;
+        Point<Float, 3> p;
         Spectrum E;
         Float area; //!< total surface area represented by this sample
         uint8_t label; //!< used by the octree construction code
@@ -49,7 +49,7 @@ NAMESPACE_BEGIN(mitsuba)
                                                     m_irrSamples(irrSamples),
                                                     m_irrIndirect(irrIndirect), m_time(time) {
             //m_resultMutex = new Mutex();
-            m_irradianceSamples = new std::vector<IrradianceSample<Float, Point3f, Spectrum>>();
+            m_irradianceSamples = new std::vector<IrradianceSample<Float, Spectrum>>();
             m_irradianceSamples->reserve(positions->size());
             m_samplesRequested = 0;
             m_integrator = m_scene->integrator();
@@ -80,22 +80,24 @@ NAMESPACE_BEGIN(mitsuba)
             m_integrator->wakeup(NULL, m_resources);*/
         }
 
-        void process(const std::vector<PositionSample3f>& positions, std::vector<IrradianceSample<Float, Point3f, Spectrum>>& result) {
+        void process(const std::vector<PositionSample3f>& positions,
+                     std::vector<IrradianceSample<Float, Spectrum>>& result) {
             result.clear();
             SamplingIntegrator* integrator = (SamplingIntegrator*)m_integrator.get();
             for (size_t i = 0; i < positions.size(); ++i) {
                 /* Create a fake intersection record */
                 const PositionSample3f& sample = positions[i];
-                Interaction3f its;
+                SurfaceInteraction3f its;
                 its.p = sample.p;
                 its.n = sample.n;
+                its.sh_frame = Frame3f(sample.n);
                 //its.shape = m_scene->shapes()[sample.shape_index].get();
                 its.time = m_time;
-                //its.wavelengths = m_sampler->next_1d();
-                //its.uv = Point2f(sample.p.x(), sample.p.y());
-                Spectrum irradiance = integrator->sample_irradiance(m_scene.get(), its, m_sampler, m_irrSamples);
+                Scene* scene = m_scene.get();
+                Sampler* sampler = m_sampler.get();
+                Spectrum irradiance = integrator->E(scene, its, sampler, m_irrSamples, m_irrIndirect);
                 //Log(Debug, "Irradiance: %s", irradiance);
-                result.push_back(IrradianceSample<Float, Point3f, Spectrum>(its.p, irradiance));
+                result.push_back(IrradianceSample<Float, Spectrum>(its.p, irradiance));
             }
         }
 
@@ -112,7 +114,7 @@ NAMESPACE_BEGIN(mitsuba)
 
     private:
         std::vector<PositionSample3f>* m_positionSamples;
-        std::vector<IrradianceSample<Float, Point3f, Spectrum>>* m_irradianceSamples;
+        std::vector<IrradianceSample<Float, Spectrum>>* m_irradianceSamples;
         size_t m_samplesRequested, m_granularity;
         int m_irrSamples;
         bool m_irrIndirect;

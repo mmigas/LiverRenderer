@@ -123,6 +123,7 @@ void render(Object *scene_, size_t sensor_i, fs::path filename) {
         std::lock_guard<std::mutex> guard(develop_callback_mutex);
         develop_callback = [&]() { film->write(filename); };
     }
+    scene->preprocess();
 
     integrator->render(scene, (uint32_t) sensor_i,
                        0 /* seed */,

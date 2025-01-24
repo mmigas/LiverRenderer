@@ -19,7 +19,8 @@ add_library(mitsuba-core OBJECT
   ${INC_DIR}/jit.h
   ${INC_DIR}/simd.h
   ${INC_DIR}/platform.h
-  ${INC_DIR}/variant.h
+  ${INC_DIR}/variant.h 
+  ${INC_DIR}/octree.h
 
   string.cpp        ${INC_DIR}/string.h
   appender.cpp      ${INC_DIR}/appender.h

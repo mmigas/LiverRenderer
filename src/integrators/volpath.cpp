@@ -232,9 +232,9 @@ public:
 
                 dr::masked(mei.t, active_medium && (si.t < mei.t)) = dr::Infinity<Float>;
                 if (dr::any_or<true>(is_spectral)) {
-                    auto [tr, free_flight_pdf] = medium->transmittance_eval_pdf(mei, si, is_spectral);
-                    Float tr_pdf = index_spectrum(free_flight_pdf, channel);
-                    dr::masked(throughput, is_spectral) *= dr::select(tr_pdf > 0.f, tr / tr_pdf, 0.f);
+                    /*auto [tr, free_flight_pdf] = medium->transmittance_eval_pdf(mei, si, is_spectral);
+                    Float tr_pdf = index_spectrum(free_flight_pdf, channel);*/
+                    dr::masked(throughput, is_spectral) *= mei.transmittance;
                 }
 
                 escaped_medium = active_medium && !mei.is_valid();
@@ -265,6 +265,10 @@ public:
             }
 
             if (dr::any_or<true>(act_medium_scatter)) {
+                if (dr::any_or<true>(active_medium)) {
+                    dr::masked(result, mei.transmittance == 0.f) = 0.f;
+                    return;
+                }
                 if (dr::any_or<true>(is_spectral))
                     dr::masked(throughput, is_spectral && act_medium_scatter) *=
                         mei.sigma_s * index_spectrum(mei.combined_extinction, channel) / index_spectrum(mei.sigma_t, channel);

@@ -200,6 +200,49 @@ public:
         return m_sigmat->bbox().ray_intersect(ray);
     }
 
+    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
+                                            UInt32 channel, Mask active) const override {
+        MI_MASKED_FUNCTION(ProfilerPhase::MediumSample, active);
+
+        // initialize basic medium interaction fields
+        MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
+        mei.wi          = -ray.d;
+        mei.sh_frame    = Frame3f(mei.wi);
+        mei.time        = ray.time;
+        mei.wavelengths = ray.wavelengths;
+
+        auto [aabb_its, mint, maxt] = intersect_aabb(ray);
+        aabb_its &= (dr::isfinite(mint) || dr::isfinite(maxt));
+        active &= aabb_its;
+        dr::masked(mint, !active) = 0.f;
+        dr::masked(maxt, !active) = dr::Infinity<Float>;
+
+        mint = dr::maximum(0.f, mint);
+        maxt = dr::minimum(ray.maxt, maxt);
+
+        auto combined_extinction = get_majorant(mei, active);
+        Float m                  = combined_extinction[0];
+        if constexpr (is_rgb_v<Spectrum>) { // Handle RGB rendering
+            dr::masked(m, channel == 1u) = combined_extinction[1];
+            dr::masked(m, channel == 2u) = combined_extinction[2];
+        } else {
+            DRJIT_MARK_USED(channel);
+        }
+
+        Float sampled_t = mint + (-dr::log(1 - sample) / m);
+        Mask valid_mi   = active && (sampled_t <= maxt);
+        mei.t           = dr::select(valid_mi, sampled_t, dr::Infinity<Float>);
+        mei.p           = ray(sampled_t);
+        mei.medium      = this;
+        mei.mint        = mint;
+    
+        std::tie(mei.sigma_s, mei.sigma_n, mei.sigma_t) =
+            get_scattering_coefficients(mei, valid_mi);
+        mei.combined_extinction = combined_extinction;
+        return mei;
+    }
+
+    
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "HeterogeneousMedium[" << std::endl

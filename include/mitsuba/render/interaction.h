@@ -576,7 +576,7 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
     // =============================================================
     using Float    = Float_;
     using Spectrum = Spectrum_;
-    MI_IMPORT_RENDER_BASIC_TYPES()
+    MI_IMPORT_RENDER_BASIC_TYPES() 
     MI_IMPORT_OBJECT_TYPES()
     using Index = typename CoreAliases::UInt32;
 
@@ -604,6 +604,9 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
     /// mint used when sampling the given distance ``t``
     Float mint;
 
+    // 
+    UnpolarizedSpectrum transmittance;
+    
     //! @}
     // =============================================================
 

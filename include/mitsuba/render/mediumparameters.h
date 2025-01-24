@@ -7,13 +7,13 @@ NAMESPACE_BEGIN(mitsuba)
     struct MediumParameters {
         Spectrum albedo;
         Spectrum sigmaT;
-        Float g;
-        Float eta;
+        float g;
+        float eta;
 
         MediumParameters() {
         }
 
-        MediumParameters(const Spectrum& albedo, Float g, Float eta, const Spectrum& sigmaT)
+        MediumParameters(const Spectrum& albedo, float g, float eta, const Spectrum& sigmaT)
             : albedo(albedo), sigmaT(sigmaT), g(g), eta(eta) {
         }
 

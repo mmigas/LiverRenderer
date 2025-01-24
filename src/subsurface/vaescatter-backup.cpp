@@ -83,11 +83,8 @@ NAMESPACE_BEGIN(mitsuba)
         MI_IMPORT_TYPES(Texture, Scene, Sampler, Sensor, BSDF, EmitterPtr)
 
     public:
-        bool m_ignoreavgconstraints;
-        bool m_low_kdtree_threshold;
-
-        VaeScatter(const Properties& props): Base(props) {
-            m_scatter_model = props.get<std::string>("vaescatter", "");
+        explicit VaeScatter(const Properties& props): Base(props) {
+            /*m_scatter_model = props.get<std::string>("vaescatter", "");
             m_use_ptracer = props.get<bool>("bruteforce", false);
             m_use_ptracer_direction = props.get<bool>("useptracerdirection", false);
             m_use_polynomials = props.get<bool>("usepolynomials", false);
@@ -97,8 +94,8 @@ NAMESPACE_BEGIN(mitsuba)
             m_disable_projection = props.get<bool>("disableprojection", false);
             m_visualize_invalid_samples = props.get<bool>("showinvalidsamples", false);
             m_visualize_absorption = props.get<bool>("visualizeabsorption", false);
-            m_ignoreavgconstraints = props.get<bool>("ignoreavgconstraints", false);
-            m_low_kdtree_threshold = props.get<bool>("lowkdtreethreshold", false);
+            // m_ignoreavgconstraints = props.getBoolean("ignoreavgconstraints", false);
+            // m_low_kdtree_threshold = props.getBoolean("lowkdtreethreshold", false);
 
             Spectrum sigmaS, sigmaA;
             Spectrum g;
@@ -110,16 +107,14 @@ NAMESPACE_BEGIN(mitsuba)
             }
 
             Spectrum sigmaT = sigmaS + sigmaA;
-            //Spectrum albedo = sigmaS / sigmaT;
+            Spectrum albedo = sigmaS / sigmaT;
 
-            //m_albedo = props.texture<Texture>("albedo", 0.5f);
+            //m_albedo = props.get<Spectrum>("albedo", albedo);
             //m_albedoTexture = props.get<Texture>(m_albedo);
 
             //m_sigmaT = props.getSpectrum("sigmaT", sigmaT); //
-            //m_sigmaT = Spectrum(0.291, 0.348, 0.405);
-            //m_albedo = Spectrum(0.997842f, 0.990433f, 0.976789f);
-            m_g = props.get<float>("g", /*g.average()*/ 1.0f);
-            m_eta = props.get<float>("eta", 1.3f);
+            m_g = props.get<float>("g", /*g.average()#1# 1.0f);
+
 
             m_medium.albedo = m_albedo;
             m_medium.sigmaT = m_sigmaT;
@@ -161,16 +156,16 @@ NAMESPACE_BEGIN(mitsuba)
                 //m_vaehelper = new VaeHelperPtracer(m_use_polynomials, m_use_difftrans, m_disable_projection, m_kernelEpsScale);
                 Log(Error, "VaeHelperPtracer not implemented");
             else
-                m_vaehelper = new VaeHelperEigen<Float, Spectrum>(m_kernelEpsScale);
+                m_vaehelper = new VaeHelperEigen<Float, Spectrum>(m_kernelEpsScale);*/
         }
 
-        virtual ~VaeScatter() override {
+        /*virtual ~VaeScatter() override {
             Log(Info, "Done rendering VaeScatter, printing stats. Only accurate for SINGLE THREADED execution!");
             std::cout << "numScatterEvaluations: " << numScatterEvaluations << std::endl;
             std::cout << "totalScatterTime: " << totalScatterTime << std::endl;
             std::cout << "totalScatterTime / numScatterEvaluations: " << totalScatterTime / numScatterEvaluations <<
                     std::endl;
-        }
+        }*/
 
 
         inline Float miWeight(Float pdfA, Float pdfB) const {
@@ -259,263 +254,13 @@ NAMESPACE_BEGIN(mitsuba)
         }
 
 
-        Spectrum LoImpl(const Scene* scene, Sampler* sampler, const SurfaceInteraction3f& its, const Vector3f& d,
-                        UInt32 depth, bool recursiveCall) const {
-            /*its.predAbsorption = Spectrum(0.0f);
-
-            // If we use the multichannel integrator to render, we need to use its child integrator here
-            MonteCarloIntegrator<Float, Spectrum>* integrator = (MonteCarloIntegrator<Float, Spectrum>*)scene->
-                    integrator();
-            /*if (!sRecSingleTls.get()) {
-                sRecSingleTls.set(new ScatterSamplingRecordArray(1));
-            }
-            if (!sRecBatchedTls.get()) {
-                sRecBatchedTls.set(new ScatterSamplingRecordArray(m_sssSamples));
-            }
-            if (!sRecRgbTls.get()) {
-                sRecRgbTls.set(new ScatterSamplingRecordArray(3));
-            }#1#
-
-            // {
-            //     if (!recursiveCall) {
-            //         BSDFSamplingRecord bRec(its, sampler, ERadiance);
-            //         bRec.typeMask = BSDF::ETransmission;
-            //         Float bsdfPdf;
-            //         Spectrum bsdfWeight = m_bsdf->sample(bRec, bsdfPdf, sampler->next2D());
-            //         auto &sRecSingle2 = sRecSingleTls.get()->data;
-            //         auto &sRecBatched2 = sRecBatchedTls.get()->data;
-            //         auto &sRecRgb2 = sRecRgbTls.get()->data;
-            //         auto &sRec2 = (depth == 1 && m_use_rgb) ? sRecRgb2 : sRecSingle2;
-            //         int nSamples2 = sRec2.size();
-            //         Vector refractedD = -its.toWorld(bRec.wo);
-
-            //         sampleOutgoingPosition(scene, its, refractedD, sampler, sRec2, nSamples2);
-            //         for (int i = 0; i < nSamples2; ++i) {
-            //             its.predAbsorption += sRec2[i].throughput / nSamples2 / 3.0;
-            //         }
-            //     }
-            // }
-            //BSDFSamplingRecord bRec(its, sampler, ERadiance);
-            Float bsdfPdf;
-            BSDFContext ctx;
-            Mask active = true;
-            auto [bRec, bsdfWeight] = m_bsdf->sample(ctx, its, sampler->next_1d(active), sampler->next_2d(active),
-                                                     active);
-            /*if ((!recursiveCall && ((bRec.sampledType & BSDF::EReflection) != 0)) ||
-                (recursiveCall && ((bRec.sampledType & BSDF::ETransmission) != 0))) {
-                RadianceQueryRecord query(scene, sampler);
-                query.type = RadianceQueryRecord::ERadiance;
-                query.depth = depth + 1;
-                query.its.sampledColorChannel = its.sampledColorChannel;
-                return bsdfWeight * integrator->Li(RayDifferential(its.p, its.toWorld(bRec.wo), its.time), query);
-            }#1#
-
-            Vector3f refractedD = -its.to_world(bRec.wo);
-            // Trace a ray to determine depth through object, then decide whether we should use 0-scattering or multiple scattering
-            Ray3f zeroScatterRay(its.p, -refractedD, its.time);
-            SurfaceInteraction3f zeroScatterIts = scene->ray_intersect(zeroScatterRay);
-            if (drjit::any_or<true>(!zeroScatterIts.is_valid())) {
-                return Spectrum(0.0f);
-            }
-            Float average;
-            if constexpr (is_rgb_v<Spectrum>) {
-                average = (-m_sigmaT.r() + -m_sigmaT.g() + -m_sigmaT.b()) / 3;
-            }
-            if (drjit::any_or<true>(sampler->next_1d() > 1 - drjit::exp(average * zeroScatterIts.t))) {
-                // Ray passes through object without scattering
-                /*RadianceQueryRecord query(scene, sampler);
-                // query.newQuery(RadianceQueryRecord::ERadiance | RadianceQueryRecord::EIntersection, its.shape->getExteriorMedium());
-                query.newQuery(RadianceQueryRecord::ERadiance, its.shape->getExteriorMedium());
-                query.depth = depth + 1;#1#
-
-                if (drjit::any_or<true>(depth > 10))
-                    return Spectrum(0.0f);
-
-                if (drjit::any_or<true>(zeroScatterIts.has_subsurface())) {
-                    //return bsdfWeight * LoImpl(scene, sampler, zeroScatterIts, refractedD, depth + 1, true);
-                } else
-                    return Spectrum(0.0f);
-            }
-
-
-            ScatterSamplingRecord<Float, Spectrum> sRecRgb[3];
-            ScatterSamplingRecord<Float, Spectrum> sRecSingle[1];
-
-            int nSamples = drjit::if_stmt(std::make_tuple(depth, m_use_rgb),
-                                          depth == 1 && m_use_rgb,
-                                          [&](const auto&, auto) {
-                                              return 3;
-                                          }, // true
-                                          [&](const auto&, auto) {
-                                              return 1;
-                                          } // false
-            );
-
-            ScatterSamplingRecord<Float, Spectrum>* sRec = nSamples == 3 ? sRecRgb : sRecSingle;
-            sampleOutgoingPosition(scene, its, refractedD, sampler, sRec, nSamples);
-            Spectrum result(0.0f);
-            Spectrum resultNoAbsorption(0.0f);
-            int nMissed = 0;
-            for (int i = 0; i < nSamples; ++i) {
-                // its.predAbsorption += sRec[i].throughput;
-
-                if (!sRec[i].isValid) {
-                    nMissed++;
-                    if (m_visualize_invalid_samples) {
-                        Spectrum tmp = Color3f(100.0f, 0.0f, 0.0f);
-                        result += tmp;
-                    }
-                    continue;
-                }
-                Spectrum throughput = bsdfWeight * m_eta * m_eta;
-                // This eta multiplication accounts for outgoing location
-                if (!m_disable_absorption)
-                    throughput *= sRec[i].throughput;
-
-                /*if (m_use_ptracer_direction) {
-                    refractedD = sRec[i].outDir;
-                    RayDifferential indirectRay(sRec[i].p, refractedD, 0.0f);
-                    Interaction3f indirectRayIts;
-                    indirectRayIts.sampledColorChannel = sRec[i].sampledColorChannel;
-                    scene->rayIntersect(indirectRay, indirectRayIts);
-                    RadianceQueryRecord query(scene, sampler);
-                    query.newQuery(
-                        RadianceQueryRecord::ERadiance | RadianceQueryRecord::EIntersection,
-                        its.shape->getExteriorMedium()); //exiting the current shape
-                    query.depth = depth + 1;
-                    query.its = indirectRayIts;
-                    result += throughput * integrator->sample(indirectRay, query);
-                    continue;
-                }#1#
-
-                if (m_visualize_absorption) {
-                    result += throughput;
-                    continue;
-                }
-
-                const Vector3f& normal = sRec[i].n;
-                const Point3f& outPosition = sRec[i].p; { // Sample 'bsdf' for outgoing ray
-                    Frame3f frame(normal);
-                    Vector3f bsdfLocalDir = warp::square_to_cosine_hemisphere(sampler->next_2d());
-                    Float bsdfPdf = warp::square_to_cosine_hemisphere_pdf(bsdfLocalDir);
-                    Vector3f bsdfRayDir = frame.to_world(bsdfLocalDir);
-                    SurfaceInteraction3f bsdfRayIts;
-                    Ray3f bsdfSampleRay;
-
-                    if (m_disable_projection) {
-                        // Escape the ray: Find new ray until the ray doesnt intersect the SSS object form inside anymore
-                        //std::tie(bsdfSampleRay, bsdfRayIts) = escapeObject(bsdfSampleRay, scene);
-                    }
-
-                    bsdfRayIts = scene->ray_intersect(bsdfSampleRay);
-                    bsdfRayIts.sampledColorChannel = sRec[i].sampledColorChannel;
-
-                    /*
-                    RadianceQueryRecord query(scene, sampler);
-                    query.newQuery(
-                        RadianceQueryRecord::ERadiance | RadianceQueryRecord::EIntersection,
-                        its.shape->getExteriorMedium()); //exiting the current shape
-                    query.depth = depth + 1;
-                    query.its = bsdfRayIts;
-                    query.extra |= RadianceQueryRecord::EIgnoreFirstBounceEmitted;
-                    #1#
-
-                    // Evaluate illumination PDF in ray direction
-                    /*Spectrum emitted(0.0f);
-                    Float lumPdf = 0.0f;
-                    if (drjit::any_or<true>(bsdfRayIts.is_valid())) { // If emitter was hit, we can apply MIS
-                        if (bsdfRayIts.shape->is_emitter()) {
-                            DirectionSample3f dRec;
-                            //dRec.ref = outPosition;
-                            //dRec.refN = normal;
-                            emitted = bsdfRayIts.Le(-bsdfSampleRay.d);
-                            //dRec.setQuery(bsdfSampleRay, bsdfRayIts);
-                            lumPdf = scene->pdf_emitter_direction(bsdfRayIts, dRec);
-                        }
-                    } else {
-                        const Emitter<Float, Spectrum>* env = scene->environment();
-                        if (env) {
-                            DirectionSample3f dRec;
-                            dRec.refN = Vector3f(0.0f);
-                            emitted = env->eval_environment(bsdfSampleRay);
-                            if (env->fillDirectSamplingRecord(dRec, bsdfSampleRay))
-                                lumPdf = scene->pdfEmitterDirect(dRec);
-                        }
-                    }#1#
-
-                    Mask active = true;
-                    auto [spec, mask] = integrator->sample(scene, sampler, bsdfSampleRay, nullptr, nullptr, active);
-                    Spectrum indirect = throughput * spec;
-                    if (m_use_mis) {
-                        /*Spectrum l = emitted * miWeight(bsdfPdf, lumPdf) * Sw(bsdfLocalDir);
-                        result += indirect + throughput * l;
-                        resultNoAbsorption += indirect + l;#1#
-                    } else {
-                        Spectrum t = indirect * Sw(bsdfLocalDir);
-                        //result += t;
-                        //resultNoAbsorption += t;
-                    }
-                } { // Peform next event estimation and MIS with the path traced result
-                    auto [emitterRec , emitterSampleValue] = scene->sample_emitter_direction(its,
-                        sampler->next_2d(),
-                        !m_disable_projection); // dont test visibility if we dont project
-                    if (m_disable_projection) {
-                        /*Ray3f shadowRay(emitterRec.ref, emitterRec.d, drjit::Epsilon, emitterRec.dist * (1 - math::ShadowEpsilon), emitterRec.time);
-                        if (isShadowedIgnoringSssObject(shadowRay, scene, emitterRec.dist)) {
-                            emitterSampleValue = Spectrum(0.0f);
-                        }#1#
-                    }
-
-                    //if (!emitterSampleValue.isZero()) {
-                    EmitterPtr emitter = static_cast<EmitterPtr>(emitterRec.emitter);
-                    const Float bsdfVal = drjit::InvPi<Float> * drjit::maximum(drjit::dot(emitterRec.d, normal), 0.0f);
-
-                    Frame3f local(normal);
-                    if (drjit::any_or<true>(bsdfVal > 0)) {
-                        Float bsdfPdf;
-                        //bool hasFlag = (bool)has_flag(emitter->flags(), EmitterFlags::Surface);
-                        auto mask = emitter->flags() & (uint32_t)EmitterFlags::Surface;
-                        if (drjit::any_or<true>(mask)) {
-                            bsdfPdf = bsdfVal;
-                        } else {
-                            bsdfPdf = 0;
-                        }
-                        if (m_use_mis) {
-                            /*Spectrum emitted = emitterSampleValue * bsdfVal * miWeight(emitterRec.pdf, bsdfPdf) * Sw(local.toLocal(emitterRec.d));
-                            result += throughput * emitted;
-                            resultNoAbsorption += emitted;#1#
-                        } else {
-                            Spectrum emitted = emitterSampleValue * bsdfVal * Sw(local.to_local(emitterRec.d));
-                            result += throughput * emitted;
-                            resultNoAbsorption += emitted;
-                        }
-                    }
-                    //}
-                }
-            }
-            if (m_use_ptracer) {
-                //its.predAbsorption = Spectrum(1.0 - (Float)nMissed / (Float)nSamples);
-                //its.missedProjection = 0.0f;
-            } else {
-                its.missedProjection = (float)nMissed / (float)nSamples;
-                // its.predAbsorption /= nSamples;
-            }
-            its.filled = true;
-            if (!m_use_ptracer)
-                its.noAbsorption = resultNoAbsorption / nSamples;
-
-            if constexpr (is_rgb_v<Spectrum>) {
-                if (drjit::any_nested(drjit::isnan(result[0]) || drjit::isnan(result[1]) || drjit::isnan(result[2]))) {
-                    Log(Warn, "VaeScatter encountered NaN value!");
-                    return Spectrum(0.0f);
-                }
-            }*/
-            return Spectrum(0.0f);
-        }
 
 
         Spectrum sample(const Scene* scene, Sampler* sampler, const SurfaceInteraction3f& si, const Vector3f& d,
                         UInt32 depth) const override {
+            if (drjit::any_or<true>(drjit::dot(si.sh_frame.n, d) < 0.0f))
+                // Discard if we somehow hit the object from inside
+                return Spectrum(0.0f);
             return Spectrum(0.0f);
         }
 
@@ -608,15 +353,10 @@ NAMESPACE_BEGIN(mitsuba)
             Log(Info, "Preprocessing time: %fs", totalSecondsPreproc);
         }
 
-        std::string to_string() const override {
-            std::ostringstream oss;
-            oss << "VaeScatter[" << std::endl
-                    << "  id = " << m_id << std::endl
-                    << "]";
-            return oss.str();
+    protected:
+        ~VaeScatter() override {
         }
 
-    protected:
         MI_DECLARE_CLASS()
 
     private:
@@ -624,7 +364,6 @@ NAMESPACE_BEGIN(mitsuba)
         ref<Texture> m_albedoTexture;
         ref<BSDF> m_bsdf;
         // ref<Texture> m_sigmaT;
-        //ref<Spectrum> m_albedo;
         Spectrum m_albedo, m_sigmaT;
         float m_g;
         float m_polyGlobalConstraintWeight, m_polyRegularization, m_kernelEpsScale;

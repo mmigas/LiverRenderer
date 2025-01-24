@@ -2,32 +2,32 @@
 #include <mitsuba/render/subsurface.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/spectrum.h>
-/*#include "irrproc.h"
+#include "irrproc.h"
 #include "bluenoise.hpp"
-#include "irrtree.h"*/
+#include "irrtree.h"
 
 NAMESPACE_BEGIN(mitsuba)
-    /*template<typename Float, typename Point, typename Spectrum>
+    template<typename Float, typename Point, typename Spectrum>
     struct IsotropicDipoleQuery {
         inline IsotropicDipoleQuery(const Spectrum& zr, const Spectrum& zv,
                                     const Spectrum& sigmaTr, const Point& p)
             : zr(zr), zv(zv), sigmaTr(sigmaTr), result(0.0f), p(p) {
         }
 
-        inline void operator()(const IrradianceSample<Float, Point, Spectrum>& sample) {
+        inline void operator()(const IrradianceSample<Float, Spectrum>& sample) {
             Float distance = dr::norm(p - sample.p);
             Spectrum rSqr = Spectrum(distance);
 
-            /* Distance to the real source #1#
+            /* Distance to the real source */
             Spectrum dr = dr::sqrt(rSqr + zr * zr);
 
-            /* Distance to the image point source #1#
+            /* Distance to the image point source */
             Spectrum dv = dr::sqrt(rSqr + zv * zv);
 
             Spectrum C1 = zr * (sigmaTr + Spectrum(1.0f) / dr);
             Spectrum C2 = zv * (sigmaTr + Spectrum(1.0f) / dv);
 
-            /* Do not include the reduced albedo - will be canceled out later #1#
+            /* Do not include the reduced albedo - will be canceled out later */
             Spectrum dMo = Spectrum(dr::InvPi<Float>) *
                            (C1 * (dr::exp(-sigmaTr * dr)) / (dr * dr)
                             + C2 * (dr::exp(-sigmaTr * dv)) / (dv * dv));
@@ -45,7 +45,7 @@ NAMESPACE_BEGIN(mitsuba)
     };
 
     //static ref<Mutex> irrOctreeMutex = new Mutex();
-    static int irrOctreeIndex = 0;*/
+    static int irrOctreeIndex = 0;
 
     template<typename Float, typename Spectrum>
     class Dipole final : public Subsurface<Float, Spectrum> {
@@ -61,7 +61,7 @@ NAMESPACE_BEGIN(mitsuba)
         Spectrum m_sigmaS, m_sigmaA, m_g;
         Spectrum m_sigmaTr, m_zr, m_zv;
         Spectrum m_sigmaSPrime, m_sigmaTPrime;
-        //IrradianceOctree<Float, Point3f, Spectrum, BoundingBox3f>* m_octree;
+        IrradianceOctree<Float, Spectrum>* m_octree;
         //ref<ParallelProcess> m_proc;
         int m_octreeResID, m_octreeIndex;
         int m_irrSamples;
@@ -69,7 +69,7 @@ NAMESPACE_BEGIN(mitsuba)
 
     public:
         explicit Dipole(const Properties& props) : Base(props) {
-           // m_octreeIndex = irrOctreeIndex++;
+            m_octreeIndex = irrOctreeIndex++;
 
             /* How many samples should be taken when estimating
                the irradiance at a given point in the scene? */
@@ -105,7 +105,7 @@ NAMESPACE_BEGIN(mitsuba)
                 m_radius = drjit::minimum(m_radius, mfp[lambda]);
             }
             m_radius = 0.006711f;
-            //m_octree = nullptr;
+            m_octree = nullptr;
 
             /* Dipole boundary condition distance term */
             Float A = (1 + m_Fdr) / (1 - m_Fdr);
@@ -119,7 +119,7 @@ NAMESPACE_BEGIN(mitsuba)
         }
 
         void preprocess(const ref<Scene> scene) override {
-            /*if (m_octree)
+            if (m_octree)
                 return; // Octree is already initialized
 
 
@@ -136,7 +136,7 @@ NAMESPACE_BEGIN(mitsuba)
             Log(Info, "Blue noise point set generated in %s ms.", util::time_string(timer.reset()));
             /*if (drjit::any_or<true>(active)) {
                 return Spectrum(0.0f);
-            }#1#
+            }*/
 
             // Step 2: Sample irradiance
             const ref<Sensor> sensor = scene->sensors()[0];
@@ -152,7 +152,7 @@ NAMESPACE_BEGIN(mitsuba)
             ref<Sampler> sampler = PluginManager::instance()->create_object<Sampler>(Properties("independent"));
 
             // Perform irradiance sampling
-            std::vector<IrradianceSample<Float, Point3f, Spectrum>> samples;
+            std::vector<IrradianceSample<Float, Spectrum>> samples;
             proc->process(*points, samples);
             Log(Info, "Irradiance samples processed in %s ms.", util::time_string(timer.reset()));
             // Step 3: Normalize areas
@@ -160,43 +160,16 @@ NAMESPACE_BEGIN(mitsuba)
             for (auto& sample: samples) {
                 sample.area = sa;
             }
-            Log(Info, "Areas normalized in %s ms.", util::time_string(timer.reset()));
-            samples[0].p = Point3f(0.506945f, -0.464751f, 0.960198f);
-            samples[0].area = 3.032247;
-            samples[0].label = 0;
-            samples[1].p = Point3f(0.506945, -0.464751, 0.960198);
-            samples[1].area = 3.032247;
-            samples[1].label = 0;
-            samples[2].p = Point3f(-0.628801, -0.705428, 0.629747);
-            samples[2].area = 3.032247;
-            samples[2].label = 0;
-            samples[3].p = Point3f(-0.350456, -0.680434, 0.610963);
-            samples[3].area = 3.032247;
-            samples[3].label = 0;
-            samples[4].p = Point3f(-0.100300, 0.846256, 1.232089);
-            samples[4].area = 3.032247;
-            samples[4].label = 0;
-            samples[5].p = Point3f(0.427005, 0.065343, 0.270798);
-            samples[5].area = 3.032247;
-            samples[5].label = 0;
-            samples[6].p = Point3f(0.686444, 0.539888, 0.164518);
-            samples[6].area = 3.032247;
-            samples[6].label = 0;
-            samples[7].p = Point3f(0.960193, 0.445440, 0.056461);
-            samples[7].area = 3.032247;
-            samples[7].label = 0;
-            for (auto sample: samples) {
-                Log(Info, "Sample Position: %f %f %f", sample.p[0], sample.p[                             1], sample.p[2]);
-            }
+
             // Step 4: Build the irradiance octree
             m_octree = new IrradianceOctree(aabb, m_quality, samples);
-            Log(Debug, "Irradiance octree built in %i ms.", util::time_string(timer.reset()));*/
+            Log(Debug, "Irradiance octree built in %i ms.", util::time_string(timer.reset()));
         }
 
         Spectrum sample(const Scene* scene, Sampler* sampler,
                         const SurfaceInteraction3f& si, const Vector& d, UInt32 depth) const override {
-            /*if (!m_active || drjit::any_or<true>(drjit::dot(si.sh_frame.n, d) < 0.0f)) {
-                return Spectrum(1.0f);
+            if (drjit::any_or<true>(drjit::dot(si.sh_frame.n, d) < 0.0f)) {
+                return Spectrum(0.0f);
             }
 
             IsotropicDipoleQuery<Float, Point3f, Spectrum> query(m_zr, m_zv, m_sigmaTr, si.p);
@@ -206,8 +179,9 @@ NAMESPACE_BEGIN(mitsuba)
             //Log(Info, "Dipole result: %s", result);
             /*if (m_eta != 1.0f)
                 result *= 1.0f - fresnelDielectricExt(dot(si.sh_Frame.n, d), m_eta);
-                #1#*/
-            return Spectrum(0.5f, 0.5f, 0.5f);
+                */
+
+            return result;
         }
 
         std::string to_string() const override {

@@ -319,7 +319,7 @@ NAMESPACE_BEGIN(mitsuba)
 
         Point2f sample(sample_);
         DirectionSample3f ds;
-        Spectrum spec; 
+        Spectrum spec;
 
         // Potentially disable inlining of emitter sampling (if there is just a single emitter)
         bool vcall_inline = true;
@@ -369,6 +369,90 @@ NAMESPACE_BEGIN(mitsuba)
         }
 
         return {ds, spec};
+    }
+
+    MI_VARIANT
+    Spectrum Scene<Float, Spectrum>::sampleAttenuatedEmitterDirect(DirectSamplingRecord<Float, Spectrum>& dRec,
+                                                                   const SurfaceInteraction3f& its,
+                                                                   int& interactions,
+                                                                   const Point<Float, 2>& sample,
+                                                                   Sampler* sampler) const {
+        /* Randomly pick an emitter */
+        Mask active = true;
+        auto [index, emitter_weight, sample_1_re] = sample_emitter(
+            sample.x(), active);
+
+        // Sample a direction towards the emitter
+        EmitterPtr emitter = dr::gather<EmitterPtr>(m_emitters_dr, index, active);
+        auto [value, directSample] = emitter->sampleDirect(dRec, its, sample);
+
+        if (drjit::any_nested_or<true>(dRec.pdf != 0)) {
+            /*if (its.shape && its.isMediumTransition())
+                medium = its.getTargetMedium(dRec.d);*/
+            value *= evalTransmittance(its.p, true, directSample.p, true,
+                                       // TODO: Check if I can assume is on surface is 
+                                       // always true
+                                       directSample.time, interactions, sampler) /*/ emPdf*/;
+            //dRec.object = emitter;
+            //dRec.pdf *= emPdf;
+            return value;
+        } else {
+            return Spectrum(0.0f);
+        }
+    }
+
+    MI_VARIANT
+    Spectrum Scene<Float, Spectrum>::evalTransmittance(const Point3f& p1, bool p1OnSurface,
+                                                       const Point3f& p2, bool p2OnSurface,
+                                                       Float time,
+                                                       int& interactions,
+                                                       Sampler* sampler) const {
+        Vector3f d = p2 - p1;
+        Float remaining = drjit::norm(d);
+        d /= remaining;
+
+        Float length_factor = p2OnSurface ? (1 - drjit::Epsilon<Float>) : 1;
+        Ray3f ray(p1, d, time);
+        Spectrum transmittance = Spectrum(1.f);
+        int max_interactions = interactions;
+        interactions = 0;
+
+        // Active mask for the while loop
+        Mask active = remaining > 0;
+        Mask active_total = active;
+
+        while (drjit::any(active)) {
+            SurfaceInteraction3f si = ray_intersect(ray, active);
+            Mask surface = si.is_valid();
+            Normal3f n = si.sh_frame.n;
+
+            // Handle occluders
+            Mask occluder = surface && (interactions == max_interactions);
+            dr::masked(transmittance, occluder) = 0.f;
+            active &= !occluder;
+
+
+            // Break condition: no surface or zero transmittance
+            Mask zero_transmittance = !surface || dr::any_or<true>(transmittance == 0.f);
+            active &= !zero_transmittance;
+
+            // BSDF evaluation
+            if (dr::any(active)) {
+                auto bsdf = si.bsdf();
+                BSDFContext ctx(TransportMode::Radiance);
+                Vector3f wo = si.to_local(-ray.d);
+                transmittance *= bsdf->eval(ctx, si, wo, active);
+            }
+
+            // Update ray and remaining length
+            if (dr::any(active)) {
+                ray.o = si.p;
+                remaining -= si.t;
+                ray.maxt = remaining * length_factor;
+            }
+        }
+        // Extract final interactions count to return by reference
+        return transmittance;
     }
 
     MI_VARIANT

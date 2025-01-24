@@ -30,6 +30,10 @@ public:
         NB_OVERRIDE_PURE(get_scattering_coefficients, mi, active);
     }
 
+    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample, UInt32 channel, Mask active) const override {
+        NB_OVERRIDE_PURE(sample_interaction, ray, sample, channel, active);
+    }
+    
     std::string to_string() const override {
         NB_OVERRIDE_PURE(to_string);
     }

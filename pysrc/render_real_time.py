@@ -6,6 +6,7 @@ import OpenGL.GL as gl
 from PIL import Image
 import numpy as np  # Import NumPy
 import mitsuba as mi
+import drjit as dr
 
 # Vertex and fragment shader sources
 VERTEX_SHADER_SRC = """
@@ -101,7 +102,7 @@ def key_callback(window, key, scancode, action, mods):
 
 def update_camera(scene):
     """Update the camera's position based on user input."""
-    global camera_movement
+    global camera_movement, movement_speed, yaw, pitch
 
     # Access scene parameters
     params = mi.traverse(scene)
@@ -109,30 +110,40 @@ def update_camera(scene):
     # Extract current camera position and target
     transform = params['camera.to_world']
     matrix = transform.matrix
+    cam_position = np.array([matrix[0, 3], matrix[1, 3], matrix[2, 3]])
     cam_target = -np.array([matrix[0, 2], matrix[1, 2], matrix[2, 2]])
-
+    up = np.array([matrix[0, 1], matrix[1, 1], matrix[2, 1]])
     # Normalize forward direction
     forward = -(cam_target / np.linalg.norm(cam_target))
-    up = np.array([matrix[0, 1], matrix[1, 1], matrix[2, 1]])
     right = np.cross(forward, up, axis=0)
     right /= np.linalg.norm(right)
 
-    cam_position = np.array([[0.0], [0.0], [0.0]])
     # Update camera position based on user input
+    move_vector = np.array([[0.0], [0.0], [0.0]])
     if camera_movement['forward']:
-        cam_position += forward * movement_speed
+        move_vector += forward
     if camera_movement['backward']:
-        cam_position -= forward * movement_speed
+        move_vector -= forward
     if camera_movement['left']:
-        cam_position -= right * movement_speed
+        move_vector -= right
     if camera_movement['right']:
-        cam_position += right * movement_speed
+        move_vector += right
 
-    # Update position and target
-    t = mi.Transform4f().translate([cam_position[0], cam_position[1], cam_position[2]])
+    move_vector *= movement_speed
+
+    translate = mi.Transform4f().translate([move_vector[0], move_vector[1], move_vector[2]])
+
+    # Create a rotation matrix from yaw and pitch
+    yaw_rotation = mi.Transform4f().rotate(axis=mi.Point3f(0, 0, 1), angle=dr.scalar.Float(np.degrees(yaw)))
+    pitch_rotation = mi.Transform4f().rotate(axis=mi.Point3f(right[0], right[1], right[2]), angle=dr.scalar.Float(np.degrees(pitch)))
+    yaw = 0.0
+    pitch = 0.0
+    translate_to_origin = mi.Transform4f().translate([-cam_position[0], -cam_position[1], -cam_position[2]])
+    translate_back = mi.Transform4f().translate([cam_position[0], cam_position[1], cam_position[2]])
+    new_transform = translate @ transform
 
     # Assign the new position back to the parameters
-    params['camera.to_world'] = t @ transform
+    params['camera.to_world'] = new_transform
     params.update()  # Apply changes
 
 
@@ -207,7 +218,7 @@ def load_texture_from_mitsuba(scene, width, height):
         height = params['camera.film.size'][1]
 
         # Render the scene
-        image = mi.render(scene, spp=4)
+        image = mi.render(scene, spp=1)
 
         denoiser = mi.OptixDenoiser(input_size=[width, height], albedo=False, normals=False, temporal=False)
         denoised = denoiser(image)
@@ -251,6 +262,8 @@ def main():
 
     # Set up key callback
     glfw.set_key_callback(window, key_callback)
+    glfw.set_mouse_button_callback(window, mouse_button_callback)
+    glfw.set_cursor_pos_callback(window, cursor_position_callback)
 
     # Set up OpenGL
     shader_program = create_shader_program()

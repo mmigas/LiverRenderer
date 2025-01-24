@@ -50,8 +50,8 @@ public:
      *                 The MediumInteraction will always be valid,
      *                 except if the ray missed the Medium's bounding box.
      */
-    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
-                                           UInt32 channel, Mask active) const;
+    virtual MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
+                                           UInt32 channel, Mask active) const = 0;
 
     /**
      * \brief Compute the transmittance and PDF

@@ -474,20 +474,9 @@ NAMESPACE_BEGIN(mitsuba)
 
         static Float getKernelEps(const MediumParameters<Float, Spectrum>& medium, int channel = 0,
                                   Float kernel_multiplier = 1.0f) {
-            Float sigmaT = medium.sigmaT[channel];
-            Float albedo = medium.albedo[channel];
-            Float g = medium.g;
-            Float sigmaS = albedo * sigmaT;
-            Float sigmaa = sigmaT - sigmaS;
-            Float sigmaSp = (1 - g) * sigmaS;
-            Float sigmaTp = sigmaSp + sigmaa;
-            Float alphaP = sigmaSp / sigmaTp;
-            Float effAlphaP = Volpath3D<Float, Spectrum>::effectiveAlbedo(alphaP);
-            Float val = 0.25f * g + 0.25 * alphaP + 1.0 * effAlphaP;
-            // Float d         = alphaP - 0.5f;
-            // Float val = 0.474065f * alphaP + 0.578414f * g + 0.000028448817f * std::exp(d * d / 0.025f); //
-            // Submission version
-            return kernel_multiplier * 4.0f * val * val / (sigmaTp * sigmaTp);
+            Float kernelEps = 0.0f;
+
+            return kernelEps;
         }
 
         template<size_t degree>

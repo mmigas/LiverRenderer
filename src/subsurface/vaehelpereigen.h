@@ -159,9 +159,10 @@ NAMESPACE_BEGIN(mitsuba)
                                         drjit::slice(d.y(), 0),
                                         drjit::slice(d.z(), 0));
 
-            Spectrum albedoChannel(albedo[channel]);
+            Spectrum albedoChannel = (albedo[channel]);
             Spectrum sigmaTChannel(sigmaT[channel]);
-            MediumParameters medium(albedoChannel, g, eta, sigmaTChannel);
+
+            MediumParameters<Float, Spectrum> medium(albedoChannel, g, eta, sigmaTChannel);
 
             Float kernelEps = PolyUtils<Float, Spectrum>::getKernelEps(m_averageMedium, channel, m_kernelEpsScale);
             Float fitScaleFactor = PolyUtils<Float, Spectrum>::getFitScaleFactor(kernelEps);
