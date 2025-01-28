@@ -340,7 +340,7 @@ int main(int argc, char *argv[]) {
             Log(Warn, "Renderer is compiled in debug mode, performance will be considerably reduced.");
 #endif
         }
-
+        jit_set_flag(JitFlag::Debug, true);
         while (arg_extra && *arg_extra) {
             fs::path filename(arg_extra->as_string());
             ref<FileResolver> fr2 = new FileResolver(*fr);

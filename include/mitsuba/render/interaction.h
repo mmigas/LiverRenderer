@@ -605,7 +605,7 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
     Float mint;
 
     // 
-    UnpolarizedSpectrum transmittance;
+    Spectrum transmittance;
     
     //! @}
     // =============================================================
@@ -627,6 +627,7 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
         sigma_t             = dr::zeros<UnpolarizedSpectrum>(size);
         combined_extinction = dr::zeros<UnpolarizedSpectrum>(size);
         mint                = dr::zeros<Float>(size);
+        transmittance       = dr::zeros<Spectrum>(size);
 
         if constexpr (dr::is_jit_v<Float_>) {
             medium = dr::zeros<MediumPtr>(size);

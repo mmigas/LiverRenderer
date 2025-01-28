@@ -50,7 +50,6 @@
 
 #include <fstream>
 
-#include "../../cmake-build-release/ext/zlib/zconf.h"
 #include "mitsuba/render/bsdf.h"
 #include "mitsuba/render/polynomials.h"
 
