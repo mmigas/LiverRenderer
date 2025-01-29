@@ -51,7 +51,7 @@ public:
      *                 except if the ray missed the Medium's bounding box.
      */
     virtual MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
-                                           UInt32 channel, Mask active) const = 0;
+                                           UInt32 channel, Mask active, Float tissueDepth) const = 0;
 
     /**
      * \brief Compute the transmittance and PDF

@@ -181,9 +181,9 @@ public:
     }
     
     MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
-                                            UInt32 channel, Mask active) const override{
+                                            UInt32 channel, Mask active,Float tissueDepth) const override{
         MI_MASKED_FUNCTION(ProfilerPhase::MediumSample, active);
-
+        DRJIT_MARK_USED(tissueDepth);
         // initialize basic medium interaction fields
         MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
         mei.wi          = -ray.d;

@@ -8,18 +8,20 @@
 #include <mitsuba/render/sampler.h>
 #include <mitsuba/render/scene.h>
 #include <mitsuba/render/volume.h>
-
 #include "organic_material.h"
-#include <random>
-#include <thread>
-#define LAYER2_QTD_ELEMENTS 4
+
+#define LAYER1_QTD_ELEMENTS 2
+#define LAYER2_QTD_ELEMENTS 2
+#define LAYER3_QTD_ELEMENTS 2
+#define LAYER4_QTD_ELEMENTS 2
+#define LAYER5_QTD_ELEMENTS 3
 
 NAMESPACE_BEGIN(mitsuba)
     /**!
     
-    .. _medium-Parenchyma:
+    .. _medium-homogeneous:
     
-    Parenchyma medium (:monosp:`Parenchyma`)
+    Homogeneous medium (:monosp:`homogeneous`)
     -----------------------------------------------
     
     .. pluginparameters::
@@ -56,7 +58,7 @@ NAMESPACE_BEGIN(mitsuba)
          isotropic.
        - |exposed|, |differentiable|
     
-    This class implements a Parenchyma participating medium with support for arbitrary
+    This class implements a homogeneous participating medium with support for arbitrary
     phase functions. This medium can be used to model effects such as fog or subsurface scattering.
     
     The medium is parametrized by the single scattering albedo and the extinction coefficient
@@ -67,22 +69,22 @@ NAMESPACE_BEGIN(mitsuba)
     meters and the coefficients are in inverse millimeters, set scale to 1000.
     
     .. subfigstart::
-    .. subfigure:: ../../resources/data/docs/images/render/medium_Parenchyma_sss.jpg
-       :caption: Parenchyma medium with constant albedo
-    .. subfigure:: ../../resources/data/docs/images/render/medium_Parenchyma_sss_textured.jpg
-       :caption: Parenchyma medium with spatially varying albedo
+    .. subfigure:: ../../resources/data/docs/images/render/medium_homogeneous_sss.jpg
+       :caption: Homogeneous medium with constant albedo
+    .. subfigure:: ../../resources/data/docs/images/render/medium_homogeneous_sss_textured.jpg
+       :caption: Homogeneous medium with spatially varying albedo
     .. subfigend::
-       :label: fig-Parenchyma
+       :label: fig-homogeneous
     
     
-    The Parenchyma medium assumes the extinction coefficient to be constant throughout the medium.
+    The homogeneous medium assumes the extinction coefficient to be constant throughout the medium.
     However, it supports the use of a spatially varying albedo.
     
     .. tabs::
         .. code-tab:: xml
-            :name: lst-Parenchyma
+            :name: lst-homogeneous
     
-            <medium id="myMedium" type="Parenchyma">
+            <medium id="myMedium" type="homogeneous">
                 <rgb name="albedo" value="0.99, 0.9, 0.96"/>
                 <float name="sigma_t" value="5"/>
     
@@ -91,7 +93,7 @@ NAMESPACE_BEGIN(mitsuba)
                     <rgb name="sigma_t" value="0.5, 0.25, 0.8"/>
                 -->
     
-                <!-- A Parenchyma medium needs to have a constant extinction,
+                <!-- A homogeneous medium needs to have a constant extinction,
                     but can have a spatially varying albedo:
     
                     <volume name="albedo" type="gridvolume">
@@ -106,7 +108,7 @@ NAMESPACE_BEGIN(mitsuba)
     
         .. code-tab:: python
     
-            'type': 'Parenchyma',
+            'type': 'homogeneous',
             'albedo': {
                 'type': 'rgb',
                 'value': [0.99, 0.9, 0.96]
@@ -118,7 +120,7 @@ NAMESPACE_BEGIN(mitsuba)
             #     'value': [0.5, 0.25, 0.8]
             # }
     
-            # A Parenchyma medium needs to have a constant extinction,
+            # A homogeneous medium needs to have a constant extinction,
             # but can have a spatially varying albedo:
             # 'albedo': {
             #     'type': 'gridvolume',
@@ -132,17 +134,31 @@ NAMESPACE_BEGIN(mitsuba)
     */
 
     template<typename Float, typename Spectrum>
-    class ParenchymaMedium final : public Medium<Float, Spectrum> {
+    class GlissonCapsuleMedium final : public Medium<Float, Spectrum> {
     public:
         MI_IMPORT_BASE(Medium, m_is_homogeneous, m_has_spectral_extinction, m_phase_function)
         MI_IMPORT_TYPES(Scene, Sampler, Texture, Volume)
 
-        ParenchymaMedium(const Properties& props) : Base(props) {
+        GlissonCapsuleMedium(const Properties& props) : Base(props) {
             m_is_homogeneous = true;
-            m_sigma_blood = props.volume<Volume>("sigma_blood", 1.f);
-            m_sigma_bile = props.volume<Volume>("sigma_bile", 1.f);
-            m_sigma_hepatocity = props.volume<Volume>("sigma_hepatocity", 1.f);
-            m_sigma_lipid_water = props.volume<Volume>("sigma_lipid_water", 1.f);
+            m_albedo = props.volume<Volume>("albedo", 0.75f);
+            m_sigmat = props.volume<Volume>("sigma_t", 1.f);
+
+            layer1Limit = props.get<ScalarFloat>("layer1Limit", 0.0065f);
+            layer2Limit = props.get<ScalarFloat>("layer2Limit", 0.0072f);
+            layer3Limit = props.get<ScalarFloat>("layer3Limit", 0.0083f);
+            layer4Limit = props.get<ScalarFloat>("layer4Limit", 0.01f);
+
+            m_sigma_collagen_layer1 = props.volume<Volume>("sigma_collagen_layer1", 1.f);
+            m_sigma_collagen_layer2 = props.volume<Volume>("sigma_collagen_layer2", 1.f);
+            m_sigma_collagen_layer3 = props.volume<Volume>("sigma_collagen_layer3", 1.f);
+            m_sigma_collagen_layer4 = props.volume<Volume>("sigma_collagen_layer4", 1.f);
+
+            m_sigma_elastin_layer1 = props.volume<Volume>("sigma_elastin_layer1", 1.f);
+            m_sigma_elastin_layer2 = props.volume<Volume>("sigma_elastin_layer2", 1.f);
+            m_sigma_elastin_layer3 = props.volume<Volume>("sigma_elastin_layer3", 1.f);
+            m_sigma_elastin_layer4 = props.volume<Volume>("sigma_elastin_layer4", 1.f);
+
 
             m_scale = props.get<ScalarFloat>("scale", 1.0f);
             m_has_spectral_extinction = props.get<bool>("has_spectral_extinction", true);
@@ -150,18 +166,13 @@ NAMESPACE_BEGIN(mitsuba)
 
         void traverse(TraversalCallback* callback) override {
             callback->put_parameter("scale", m_scale, +ParamFlags::NonDifferentiable);
-            callback->put_object("sigma_blood", m_sigma_blood.get(), +ParamFlags::Differentiable);
-            callback->put_object("sigma_bile", m_sigma_bile.get(), +ParamFlags::Differentiable);
-            callback->put_object("sigma_hepatocity", m_sigma_hepatocity.get(), +ParamFlags::Differentiable);
-            callback->put_object("sigma_lipid_water", m_sigma_lipid_water.get(), +ParamFlags::Differentiable);
+            callback->put_object("albedo", m_albedo.get(), +ParamFlags::Differentiable);
+            callback->put_object("sigma_t", m_sigmat.get(), +ParamFlags::Differentiable);
             Base::traverse(callback);
         }
 
         MI_INLINE auto eval_sigmat(const MediumInteraction3f& mi, Mask active) const {
-            auto sigmat = m_sigma_blood->eval(mi) *
-                          m_sigma_bile->eval(mi) *
-                          m_sigma_hepatocity->eval(mi) *
-                          m_sigma_lipid_water->eval(mi);
+            auto sigmat = m_sigmat->eval(mi) * m_scale;
             if (has_flag(m_phase_function->flags(), PhaseFunctionFlags::Microflake))
                 sigmat *= m_phase_function->projected_area(mi, active);
             return sigmat;
@@ -179,7 +190,7 @@ NAMESPACE_BEGIN(mitsuba)
                                     Mask active) const override {
             MI_MASKED_FUNCTION(ProfilerPhase::MediumEvaluate, active);
             auto sigmat = eval_sigmat(mi, active);
-            auto sigmas = sigmat /** m_albedo->eval(mi, active)*/;
+            auto sigmas = sigmat * m_albedo->eval(mi, active);
             UnpolarizedSpectrum sigman = 0.f;
 
             return {sigmas & active, sigman, sigmat & active};
@@ -190,65 +201,71 @@ NAMESPACE_BEGIN(mitsuba)
             return {true, 0.f, dr::Infinity<Float>};
         }
 
-        dr::tuple<Int32, Float> computeDistance(MediumInteraction3f& mei) const {
+        Float computeDistance(MediumInteraction3f& mei, Float surfaceDistance) const {
             Float distance = dr::Infinity<Float>;
             Int32 elementIndex = dr::zeros<Int32>();
             UnpolarizedSpectrum sigmaA = UnpolarizedSpectrum(1.0f);
-            Int32 bioType = dr::zeros<Int32>();
+            Int32 layer = dr::zeros<Int32>();
             struct LoopState {
                 Float distance;
                 Int32 elementIndex;
                 UnpolarizedSpectrum sigmaA;
-                Int32 bioType;
-                DRJIT_STRUCT(LoopState, distance, elementIndex, sigmaA, bioType);
+                DRJIT_STRUCT(LoopState, distance, elementIndex, sigmaA);
             } ls = {
                         distance,
                         elementIndex,
                         sigmaA,
-                        bioType
                     };
 
             //Segundo o artigo, escolhemos o elemento com menor distancia para a intersecção do raio
             //O elemento com maior attIndex tem mais chance de ser atingido
-            UnpolarizedSpectrum sigma_blood = m_sigma_blood->eval(mei);
-            UnpolarizedSpectrum sigma_bile = m_sigma_bile->eval(mei);
-            UnpolarizedSpectrum sigma_lipid_water = m_sigma_lipid_water->eval(mei);
-            UnpolarizedSpectrum sigma_hepatocity = m_sigma_hepatocity->eval(mei);
+            if (dr::any_or<true>(surfaceDistance > layer4Limit)) {
+                return 0.0f;
+            } else {
+                dr::masked(layer, surfaceDistance <= layer1Limit) = 0;
+                dr::masked(layer, surfaceDistance <= layer2Limit) = 1;
+                dr::masked(layer, surfaceDistance <= layer3Limit) = 2;
+                dr::masked(layer, surfaceDistance <= layer4Limit) = 3;
+            }
+
+            UnpolarizedSpectrum sigma_collagen;
+            dr::masked(sigma_collagen, layer == 0) = m_sigma_collagen_layer1->eval(mei);
+            dr::masked(sigma_collagen, layer == 1) = m_sigma_collagen_layer2->eval(mei);
+            dr::masked(sigma_collagen, layer == 2) = m_sigma_collagen_layer3->eval(mei);
+            dr::masked(sigma_collagen, layer == 3) = m_sigma_collagen_layer4->eval(mei);
+
+            UnpolarizedSpectrum sigma_elastin;
+            dr::masked(sigma_elastin, layer == 0) = m_sigma_elastin_layer1->eval(mei);
+            dr::masked(sigma_elastin, layer == 1) = m_sigma_elastin_layer2->eval(mei);
+            dr::masked(sigma_elastin, layer == 2) = m_sigma_elastin_layer3->eval(mei);
+            dr::masked(sigma_elastin, layer == 3) = m_sigma_elastin_layer4->eval(mei);
+
+
             Int32 i = dr::zeros<Int32>();
             drjit::tie(i, ls) = dr::while_loop(
                 dr::make_tuple(i, ls),
 
-                [](const Int32& i, const LoopState& ls) {
-                    return i < 4;
+                [](const Int32& i, const LoopState& /*ls*/) {
+                    return i < 2;
                 },
 
-                [this, &sigma_blood, &sigma_bile, &sigma_lipid_water, &sigma_hepatocity](Int32& i, LoopState& ls) {
+                [this, &sigma_collagen, &sigma_elastin](Int32& i, LoopState& ls) {
                     Float& distance = ls.distance;
                     Int32& elementIndex = ls.elementIndex;
                     UnpolarizedSpectrum& sigmaA = ls.sigmaA;
-                    Int32& bioType = ls.bioType;
-
 
                     auto rng = dr::PCG32<Float>();
                     Float r = rng.next_float32();
                     dr::masked(r, r == 0.0f) = 0.5f;
 
-                    dr::masked(sigmaA, i == 0) = sigma_blood;
-                    dr::masked(bioType, i == 0) = (int)layer2_types[0];
-                    dr::masked(sigmaA, i == 1) = sigma_bile;
-                    dr::masked(bioType, i == 1) = (int)layer2_types[1];
-                    dr::masked(sigmaA, i == 2) = sigma_lipid_water;
-                    dr::masked(bioType, i == 2) = (int)layer2_types[2];
-                    dr::masked(sigmaA, i == 3) = sigma_hepatocity;
-                    dr::masked(bioType, i == 3) = (int)layer2_types[3];
+                    dr::masked(sigmaA, i == 0) = sigma_collagen;
+                    dr::masked(sigmaA, i == 1) = sigma_elastin;
 
                     Float attIndex = dr::mean(sigmaA);
                     dr::if_stmt(std::make_tuple(attIndex),
                                 attIndex > 0.0f,
                                 [&](auto attIndex) {
                                     Float aux = -(1.0 / attIndex) * (Float)log(r);
-                                    dr::masked(aux, bioType == (int)EAbsorberAndAttenuator) = -(
-                                        dr::log(attIndex + 1.0f) * dr::log(r));
                                     dr::masked(elementIndex, i == 0 || aux < distance) = i;
                                     dr::masked(distance, i == 0 || aux < distance) = aux;
                                     return aux;
@@ -261,17 +278,13 @@ NAMESPACE_BEGIN(mitsuba)
                 }
             );
 
-            dr::masked(bioType, ls.elementIndex == 0) = (int)layer2_types[0];
-            dr::masked(bioType, ls.elementIndex == 1) = (int)layer2_types[1];
-            dr::masked(bioType, ls.elementIndex == 2) = (int)layer2_types[2];
-            dr::masked(bioType, ls.elementIndex == 3) = (int)layer2_types[3];
-            return {ls.bioType, ls.distance};
+            return ls.distance;
         }
 
         MediumInteraction3f sample_interaction(const Ray3f& ray, Float sample,
                                                UInt32 channel, Mask active, Float tissueDepth) const override {
             MI_MASKED_FUNCTION(ProfilerPhase::MediumSample, active);
-            DRJIT_MARK_USED(tissueDepth);
+
             // initialize basic medium interaction fields
             MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
             mei.wi = -ray.d;
@@ -297,33 +310,30 @@ NAMESPACE_BEGIN(mitsuba)
                 DRJIT_MARK_USED(channel);
             }
 
-            auto [bioType, distance] = computeDistance(mei);
-            Float sampled_t = mint + distance;
+            Float sampled_t = mint + computeDistance(mei, tissueDepth);
             Mask valid_mi = active && (sampled_t <= maxt);
             mei.t = dr::select(valid_mi, sampled_t, dr::Infinity<Float>);
             mei.p = ray(sampled_t);
             mei.medium = this;
             mei.mint = mint;
-            mei.transmittance = Spectrum(1.0f);
-            dr::masked(active, bioType == (int)EAbsorber) = false;
-            dr::masked(active, bioType == (int)EAttenuator) = true;
             active = dr::select(sampled_t < 0.0025, false, true);
 
             dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && active) = Spectrum(1.f);
             dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && !active) = Spectrum(0);
             dr::masked(mei.transmittance, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = Spectrum(1.f);
             dr::masked(active, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = false;
-
             std::tie(mei.sigma_s, mei.sigma_n, mei.sigma_t) =
                     get_scattering_coefficients(mei, valid_mi);
             mei.combined_extinction = combined_extinction;
             return mei;
         }
 
+
         std::string to_string() const override {
             std::ostringstream oss;
-            oss << "ParenchymaMedium[" << std::endl
-                    << "  sigma_blood = " << string::indent(m_sigma_blood) << "," << std::endl
+            oss << "GlissonCapsuleMedium[" << std::endl
+                    << "  albedo = " << string::indent(m_albedo) << "," << std::endl
+                    << "  sigma_t = " << string::indent(m_sigmat) << "," << std::endl
                     << "  scale = " << string::indent(m_scale) << std::endl
                     << "]";
             return oss.str();
@@ -332,14 +342,22 @@ NAMESPACE_BEGIN(mitsuba)
         MI_DECLARE_CLASS()
 
     private:
-        ref<Volume> m_sigma_blood;
-        ref<Volume> m_sigma_bile;
-        ref<Volume> m_sigma_hepatocity;
-        ref<Volume> m_sigma_lipid_water;
+        ref<Volume> m_sigmat, m_albedo;
         ScalarFloat m_scale;
-        EBioType layer2_types[LAYER2_QTD_ELEMENTS] = {EAbsorber, EAbsorber, EAbsorber, EAbsorberAndAttenuator};
+        // Four layers of collagen
+        ref<Volume> m_sigma_collagen_layer1;
+        ref<Volume> m_sigma_collagen_layer2;
+        ref<Volume> m_sigma_collagen_layer3;
+        ref<Volume> m_sigma_collagen_layer4;
+        // Four layers of elastin
+        ref<Volume> m_sigma_elastin_layer1;
+        ref<Volume> m_sigma_elastin_layer2;
+        ref<Volume> m_sigma_elastin_layer3;
+        ref<Volume> m_sigma_elastin_layer4;
+        Float layer1Limit, layer2Limit, layer3Limit, layer4Limit, layer5Limit;
+        mutable EBioType layer_types[LAYER1_QTD_ELEMENTS] = {EAttenuator, EAttenuator};
     };
 
-    MI_IMPLEMENT_CLASS_VARIANT(ParenchymaMedium, Medium)
-    MI_EXPORT_PLUGIN(ParenchymaMedium, "Parenchyma Medium")
+    MI_IMPLEMENT_CLASS_VARIANT(GlissonCapsuleMedium, Medium)
+    MI_EXPORT_PLUGIN(GlissonCapsuleMedium, "GlissonCapsule Medium")
 NAMESPACE_END(mitsuba)

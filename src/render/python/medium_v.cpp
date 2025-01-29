@@ -30,8 +30,9 @@ public:
         NB_OVERRIDE_PURE(get_scattering_coefficients, mi, active);
     }
 
-    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample, UInt32 channel, Mask active) const override {
-        NB_OVERRIDE_PURE(sample_interaction, ray, sample, channel, active);
+    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample, UInt32 channel, Mask active, Float 
+    tissueDepth) const override {
+        NB_OVERRIDE_PURE(sample_interaction, ray, sample, channel, active, tissueDepth);
     }
     
     std::string to_string() const override {
@@ -79,9 +80,9 @@ template <typename Ptr, typename Cls> void bind_medium_generic(Cls &cls) {
             "ray"_a,
             D(Medium, intersect_aabb))
        .def("sample_interaction",
-            [](Ptr ptr, const Ray3f &ray, Float sample, UInt32 channel, Mask active) {
-                return ptr->sample_interaction(ray, sample, channel, active); },
-            "ray"_a, "sample"_a, "channel"_a, "active"_a,
+            [](Ptr ptr, const Ray3f &ray, Float sample, UInt32 channel, Mask active, Float tissueDepth) {
+                return ptr->sample_interaction(ray, sample, channel, active, tissueDepth); },
+            "ray"_a, "sample"_a, "channel"_a, "active"_a, "tissueDepth"_a,
             D(Medium, sample_interaction))
        .def("transmittance_eval_pdf",
             [](Ptr ptr, const MediumInteraction3f &mi,

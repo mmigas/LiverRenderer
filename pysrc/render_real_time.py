@@ -106,9 +106,8 @@ def update_camera(scene):
 
     # Access scene parameters
     params = mi.traverse(scene)
-
     # Extract current camera position and target
-    transform = params['camera.to_world']
+    transform = params['Camera-camera.to_world']
     matrix = transform.matrix
     cam_position = np.array([matrix[0, 3], matrix[1, 3], matrix[2, 3]])
     cam_target = -np.array([matrix[0, 2], matrix[1, 2], matrix[2, 2]])
@@ -143,7 +142,7 @@ def update_camera(scene):
     new_transform = translate @ transform
 
     # Assign the new position back to the parameters
-    params['camera.to_world'] = new_transform
+    params['Camera-camera.to_world'] = new_transform
     params.update()  # Apply changes
 
 
@@ -214,27 +213,34 @@ def load_texture_from_mitsuba(scene, width, height):
         params = mi.traverse(scene)
 
         # Set the film resolution
-        width = params['camera.film.size'][0]
-        height = params['camera.film.size'][1]
+        width = params['Camera-camera.film.size'][0]
+        height = params['Camera-camera.film.size'][1]
 
         # Render the scene
-        image = mi.render(scene, spp=1)
-
+        image = mi.render(scene, spp=4)
         denoiser = mi.OptixDenoiser(input_size=[width, height], albedo=False, normals=False, temporal=False)
         denoised = denoiser(image)
-        mi.util.write_bitmap("denoised.png", denoised)
+        bmp = mi.Bitmap(denoised)
+        mi.util.write_bitmap("output.png", image)
+        print(bmp)
+        bmp = bmp.convert(
+            pixel_format=mi.Bitmap.PixelFormat.RGB,
+            component_format=mi.Struct.Type.Float32,
+            srgb_gamma=True
+        )
         # Convert the image to a NumPy array of unsigned bytes
-        image_data = (np.clip(denoised, 0, 1) * 255).astype(np.uint8)
-
+        image_data = np.array(bmp, dtype=np.float32)
         texture = gl.glGenTextures(1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, texture)
 
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
 
         gl.glTexImage2D(
-            gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, width, height, 0,
-            gl.GL_RGBA, gl.GL_UNSIGNED_BYTE, image_data
+            gl.GL_TEXTURE_2D, 0, gl.GL_RGB, width, height, 0,
+            gl.GL_RGB, gl.GL_FLOAT, image_data
         )
         return texture, width, height
     except Exception as e:
@@ -243,7 +249,7 @@ def load_texture_from_mitsuba(scene, width, height):
 
 
 def main():
-    scene_path = "C:/dev/LiverRenderer/resources/data/scenes/matpreview/matpreview.xml"
+    scene_path = "C:/dev/LiverRenderer/resources/data/scenes/liver/liver.xml"
     scene = mi.load_file(scene_path)
     # Initialize GLFW
     if not glfw.init():
@@ -354,7 +360,6 @@ def main():
 if __name__ == "__main__":
     import mitsuba as mi
 
-    image = Image.open("C:\dev\LiverRenderer\pysrc\output.png")
-    mi.set_variant('cuda_ad_rgb')
+    mi.set_variant('cuda_ad_spectral')
 
     main()
