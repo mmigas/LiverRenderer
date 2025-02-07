@@ -1,0 +1,38 @@
+Model: Ref
+Variant: scalar_rgb # only for Mitsuba3
+
+Scene: Liver
+
+Resolution:
+  Width: 960
+  Height: 540
+Samples Per Pixel: 32
+Max Depth : 12
+
+Glisson Capsule:
+  collagen_d: 0.1
+  collagen_nMed: 1.5
+  collagen_nP: 1.5
+  collagen_vf1: 0.5
+  collagen_vf2: 0.5
+  collagen_vf3: 0.5
+  collagen_vf4: 0.5
+  elastin_d: 0.1
+  elastin_nMed: 1.5
+  elastin_nP: 1.5
+  elastin_vf1: 0.5
+  elastin_vf2: 0.5
+  elastin_vf3: 0.5
+  elastin_vf4: 0.5
+
+Parenchyma:
+  blood_vf: 0.002
+  blood_St02: 0.9084
+  blood_r: 0.004
+  bile_vf: 0.0005
+  lipid_vf: 0.019
+  water_vf: 0.7
+  hepatocity_vf: 0.8
+  hepatocity_lAxis: 0.0020
+  hepatocity_gAxis: 0.0030
+  

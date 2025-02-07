@@ -134,11 +134,14 @@ NAMESPACE_BEGIN(mitsuba)
     template<typename Float, typename Spectrum>
     class ParenchymaMedium final : public Medium<Float, Spectrum> {
     public:
-        MI_IMPORT_BASE(Medium, m_is_homogeneous, m_has_spectral_extinction, m_phase_function)
+        MI_IMPORT_BASE(Medium, m_is_homogeneous, m_has_spectral_extinction, m_phase_function, m_sample_emitters)
         MI_IMPORT_TYPES(Scene, Sampler, Texture, Volume)
 
         ParenchymaMedium(const Properties& props) : Base(props) {
             m_is_homogeneous = true;
+            //m_sigmat = UnpolarizedSpectrum(77.2f / 255, 105.0f / 255, 149.0f / 255);
+            m_albedo = props.volume<Volume>("albedo", 0.75f);
+            m_sigmat = props.volume<Volume>("sigma_t", 1.f);
             m_sigma_blood = props.volume<Volume>("sigma_blood", 1.f);
             m_sigma_bile = props.volume<Volume>("sigma_bile", 1.f);
             m_sigma_hepatocity = props.volume<Volume>("sigma_hepatocity", 1.f);
@@ -146,6 +149,7 @@ NAMESPACE_BEGIN(mitsuba)
 
             m_scale = props.get<ScalarFloat>("scale", 1.0f);
             m_has_spectral_extinction = props.get<bool>("has_spectral_extinction", true);
+            m_sample_emitters = props.get<bool>("sample_emitters", false);
         }
 
         void traverse(TraversalCallback* callback) override {
@@ -158,10 +162,12 @@ NAMESPACE_BEGIN(mitsuba)
         }
 
         MI_INLINE auto eval_sigmat(const MediumInteraction3f& mi, Mask active) const {
-            auto sigmat = m_sigma_blood->eval(mi) *
-                          m_sigma_bile->eval(mi) *
-                          m_sigma_hepatocity->eval(mi) *
-                          m_sigma_lipid_water->eval(mi);
+            //auto sigmat = m_sigmat->eval(mi) * m_scale;
+            auto sigmat = UnpolarizedSpectrum(77.2f / 255, 105.0f / 255, 149.0f / 255);
+            /*dr::masked(sigmat, mi.bioType == 0) = m_sigma_blood->eval(mi, active);
+            dr::masked(sigmat, mi.bioType == 1) = m_sigma_bile->eval(mi, active);
+            dr::masked(sigmat, mi.bioType == 2) = m_sigma_lipid_water->eval(mi, active);
+            dr::masked(sigmat, mi.bioType == 3) = m_sigma_hepatocity->eval(mi, active);*/
             if (has_flag(m_phase_function->flags(), PhaseFunctionFlags::Microflake))
                 sigmat *= m_phase_function->projected_area(mi, active);
             return sigmat;
@@ -178,8 +184,10 @@ NAMESPACE_BEGIN(mitsuba)
         get_scattering_coefficients(const MediumInteraction3f& mi,
                                     Mask active) const override {
             MI_MASKED_FUNCTION(ProfilerPhase::MediumEvaluate, active);
-            auto sigmat = eval_sigmat(mi, active);
-            auto sigmas = sigmat /** m_albedo->eval(mi, active)*/;
+            auto sigmat = UnpolarizedSpectrum(77.2f / 255, 105.0f / 255, 149.0f / 255);
+            auto sigmas = UnpolarizedSpectrum(74.0f / 255, 88.0f / 255, 101.0f / 255);
+            /*auto sigmat = eval_sigmat(mi, active);
+            auto sigmas = sigmat * m_albedo->eval(mi, active);*/
             UnpolarizedSpectrum sigman = 0.f;
 
             return {sigmas & active, sigman, sigmat & active};
@@ -190,31 +198,39 @@ NAMESPACE_BEGIN(mitsuba)
             return {true, 0.f, dr::Infinity<Float>};
         }
 
-        dr::tuple<Int32, Float> computeDistance(MediumInteraction3f& mei) const {
+        dr::tuple<Int32, Float> computeDistance(MediumInteraction3f& mei, const UInt32& channel) const {
             Float distance = dr::Infinity<Float>;
             Int32 elementIndex = dr::zeros<Int32>();
             UnpolarizedSpectrum sigmaA = UnpolarizedSpectrum(1.0f);
             Int32 bioType = dr::zeros<Int32>();
+            dr::PCG32<Float> rng = m_rng;
             struct LoopState {
                 Float distance;
                 Int32 elementIndex;
                 UnpolarizedSpectrum sigmaA;
                 Int32 bioType;
-                DRJIT_STRUCT(LoopState, distance, elementIndex, sigmaA, bioType);
+                dr::PCG32<Float> rng;
+                DRJIT_STRUCT(LoopState, distance, elementIndex, sigmaA, bioType, rng);
             } ls = {
                         distance,
                         elementIndex,
                         sigmaA,
-                        bioType
+                        bioType,
+                        rng
                     };
 
             //Segundo o artigo, escolhemos o elemento com menor distancia para a intersecção do raio
             //O elemento com maior attIndex tem mais chance de ser atingido
-            UnpolarizedSpectrum sigma_blood = m_sigma_blood->eval(mei);
-            UnpolarizedSpectrum sigma_bile = m_sigma_bile->eval(mei);
-            UnpolarizedSpectrum sigma_lipid_water = m_sigma_lipid_water->eval(mei);
-            UnpolarizedSpectrum sigma_hepatocity = m_sigma_hepatocity->eval(mei);
+            Float sigma_blood = 0.0046f;
+            Float sigma_bile = 0.0022f;
+            Float sigma_lipid_water = 0.0044f;
+            Float sigma_hepatocity = 269.0f;
+            //           UnpolarizedSpectrum sigma_blood = m_sigma_blood->eval(mei);
+            //           UnpolarizedSpectrum sigma_bile = m_sigma_bile->eval(mei);
+            //           UnpolarizedSpectrum sigma_lipid_water = m_sigma_lipid_water->eval(mei);
+            //           UnpolarizedSpectrum sigma_hepatocity = m_sigma_hepatocity->eval(mei);
             Int32 i = dr::zeros<Int32>();
+            //Float log10Hepatocity = dr::array_t<Float>(log10(269.0f + 1.0f));
             drjit::tie(i, ls) = dr::while_loop(
                 dr::make_tuple(i, ls),
 
@@ -222,15 +238,16 @@ NAMESPACE_BEGIN(mitsuba)
                     return i < 4;
                 },
 
-                [this, &sigma_blood, &sigma_bile, &sigma_lipid_water, &sigma_hepatocity](Int32& i, LoopState& ls) {
+                [this, &sigma_blood, &sigma_bile, &sigma_lipid_water, &sigma_hepatocity, channel ](
+            Int32& i, LoopState& ls) {
                     Float& distance = ls.distance;
                     Int32& elementIndex = ls.elementIndex;
                     UnpolarizedSpectrum& sigmaA = ls.sigmaA;
                     Int32& bioType = ls.bioType;
 
-
-                    auto rng = dr::PCG32<Float>();
-                    Float r = rng.next_float32();
+                    dr::PCG32<Float> rng;
+                    double random = ((double)rand() / (RAND_MAX + 1));
+                    Float r = dr::array_t<Float>(random);
                     dr::masked(r, r == 0.0f) = 0.5f;
 
                     dr::masked(sigmaA, i == 0) = sigma_blood;
@@ -241,14 +258,16 @@ NAMESPACE_BEGIN(mitsuba)
                     dr::masked(bioType, i == 2) = (int)layer2_types[2];
                     dr::masked(sigmaA, i == 3) = sigma_hepatocity;
                     dr::masked(bioType, i == 3) = (int)layer2_types[3];
-
-                    Float attIndex = dr::mean(sigmaA);
+                    Float attIndex = sigmaA[0];
+                    dr::masked(attIndex, channel == 1u) = sigmaA[1];
+                    dr::masked(attIndex, channel == 2u) = sigmaA[2];
                     dr::if_stmt(std::make_tuple(attIndex),
                                 attIndex > 0.0f,
-                                [&](auto attIndex) {
+                                [&](Float attIndex) {
                                     Float aux = -(1.0 / attIndex) * (Float)log(r);
-                                    dr::masked(aux, bioType == (int)EAbsorberAndAttenuator) = -(
-                                        dr::log(attIndex + 1.0f) * dr::log(r));
+                                    if constexpr (is_rgb_v<Spectrum>) {
+                                        dr::masked(aux, bioType == (int)EAbsorberAndAttenuator) = -(dr::log(r));
+                                    }
                                     dr::masked(elementIndex, i == 0 || aux < distance) = i;
                                     dr::masked(distance, i == 0 || aux < distance) = aux;
                                     return aux;
@@ -265,6 +284,8 @@ NAMESPACE_BEGIN(mitsuba)
             dr::masked(bioType, ls.elementIndex == 1) = (int)layer2_types[1];
             dr::masked(bioType, ls.elementIndex == 2) = (int)layer2_types[2];
             dr::masked(bioType, ls.elementIndex == 3) = (int)layer2_types[3];
+            //Log(Info, "ElementIndex %d", ls.elementIndex);
+            //Log(Info, "Distance %f", ls.distance);
             return {ls.bioType, ls.distance};
         }
 
@@ -297,7 +318,9 @@ NAMESPACE_BEGIN(mitsuba)
                 DRJIT_MARK_USED(channel);
             }
 
-            auto [bioType, distance] = computeDistance(mei);
+            auto [bioType, distance] = computeDistance(mei, channel);
+            //Log(Info, "Distance is %f", distance);
+            //Log(Info, "Distance Sample %f", (-dr::log(1 - sample) / m));
             Float sampled_t = mint + distance;
             Mask valid_mi = active && (sampled_t <= maxt);
             mei.t = dr::select(valid_mi, sampled_t, dr::Infinity<Float>);
@@ -305,14 +328,51 @@ NAMESPACE_BEGIN(mitsuba)
             mei.medium = this;
             mei.mint = mint;
             mei.transmittance = Spectrum(1.0f);
-            dr::masked(active, bioType == (int)EAbsorber) = false;
-            dr::masked(active, bioType == (int)EAttenuator) = true;
-            active = dr::select(sampled_t < 0.0025, false, true);
+            mei.bioType = bioType;
+            /*dr::masked(active, bioType == (int)EAbsorber) = false;
+            dr::masked(active, bioType == (int)EAttenuator) = true;*/
+            //active = dr::select(sampled_t < 0.0025, false, true);
 
-            dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && active) = Spectrum(1.f);
-            dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && !active) = Spectrum(0);
-            dr::masked(mei.transmittance, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = Spectrum(1.f);
-            dr::masked(active, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = false;
+            /*dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (maxt - mint) && active) = Spectrum(0.f);
+            dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (maxt - mint) && !active) = Spectrum(0);
+            dr::masked(mei.transmittance,
+                       !(sampled_t > 0.0f && sampled_t < (maxt - mint) && active) && !(
+                           sampled_t > 0.0f && sampled_t < (maxt - mint) && !active)) = Spectrum(1.f);
+            dr::masked(mei.t, !(sampled_t > 0.0f && sampled_t < (maxt - mint) && active) && !(
+                                  sampled_t > 0.0f && sampled_t < (maxt - mint) && !active)) = dr::Infinity<Float>;*/
+
+            if (dr::all_nested(bioType == 0)) {
+                active = false;
+                mei.t = dr::Infinity<Float>;
+                //test for absortion: No
+            } else if (dr::all_nested(bioType == 1)) {
+                active = true;
+            }
+            //test for absortion: Yes
+            else {
+                //propabilistic test for absorption(mockup)
+                //double r = ((double) rand() / (RAND_MAX+1));
+                /*double r = 0.0025; //hepatocity mean diameter
+                if (dr::all_nested(sampled_t < r)) {
+                    //Absorbed: Yes
+                    active = false;
+                    mei.t = dr::Infinity<Float>;
+                } else {
+                    //Absorbed: No
+                    active = true;
+                }*/
+                
+            }
+
+            if (dr::all_nested(sampled_t > 0.0f && sampled_t < (maxt - mint) && active)) {
+                mei.transmittance = Spectrum(1.0f); //(Spectrum(sigma) * (-sampled_t)).exp();		
+            } else if (dr::all_nested(sampled_t > 0.0f && sampled_t < (maxt - mint) && !active)) {
+                mei.transmittance = Spectrum(0.0f);
+                mei.t = dr::Infinity<Float>;
+            } else { //hit layer boundary
+                mei.transmittance = Spectrum(1.0f);
+                mei.t = dr::Infinity<Float>;
+            }
 
             std::tie(mei.sigma_s, mei.sigma_n, mei.sigma_t) =
                     get_scattering_coefficients(mei, valid_mi);
@@ -332,6 +392,11 @@ NAMESPACE_BEGIN(mitsuba)
         MI_DECLARE_CLASS()
 
     private:
+        dr::PCG32<Float> m_rng;
+
+
+        /*UnpolarizedSpectrum m_sigmat/*, m_albedo#1#;*/
+        ref<Volume> m_sigmat, m_albedo;
         ref<Volume> m_sigma_blood;
         ref<Volume> m_sigma_bile;
         ref<Volume> m_sigma_hepatocity;

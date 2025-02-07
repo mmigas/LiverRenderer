@@ -606,6 +606,8 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
 
     // 
     Spectrum transmittance;
+
+    UInt32 bioType;
     
     //! @}
     // =============================================================

@@ -1,0 +1,69 @@
+<scene version="3.6.0">
+    <default name="integrator" value="volpath" />
+    <default name="spp" value="64" />
+    <default name="res_width" value="1920" />
+    <default name="res_height" value="1080" />
+    <default name="max_depth" value="5" />
+    <integrator type="$integrator">
+        <integer name="max_depth" value="$max_depth" />
+    </integrator>
+    <sensor type="perspective">
+        <float name="fov" value="35" />
+        <transform name="to_world">
+            <lookat origin="0, 5, -10" target="0, 0, 0" up="0, 1, 0" />
+        </transform>
+        <sampler type="ldsampler">
+            <integer name="sample_count" value="$spp" />
+        </sampler>
+        <film type="hdrfilm">
+            <integer name="width" value="$res_width" />
+            <integer name="height" value="$res_height" />
+            <string name="file_format" value="openexr" />
+            <string name="pixel_format" value="rgb" />
+            <rfilter type="tent" />
+        </film>
+    </sensor>
+    <bsdf type="dielectric" id="MaterialBSDF">
+        <float name="int_ior" value="1.5" />
+        <float name="ext_ior" value="1" />
+    </bsdf>
+    <bsdf type="diffuse" id="FloorBSDF">
+        <texture name="reflectance" type="checkerboard">
+            <rgb name="color0" value="0.325, 0.31, 0.25" />
+            <rgb name="color1" value="0.725, 0.71, 0.68" />
+            <transform name="to_uv">
+                <scale x="10.000000" y="10.000000" />
+            </transform>
+        </texture>
+    </bsdf>
+    <medium id="parenchymaMedium" type="parenchyma">
+        <spectrum name="sigma_blood" value="360:0.2464,370:0.2455,380:0.2481,390:0.2498,400:0.2500,410:0.2500,420:0.2500,430:0.2500,440:0.2491,450:0.2359,460:0.2102,470:0.1863,480:0.1670,490:0.1576,500:0.1488,510:0.1472,520:0.1647,530:0.2053,540:0.2243,550:0.2126,560:0.1938,570:0.2135,580:0.2198,590:0.1230,600:0.0419,610:0.0230,620:0.0152,630:0.0108,640:0.0085,650:0.0072,660:0.0062,670:0.0056,680:0.0051,690:0.0047,700:0.0046,710:0.0046," />
+        <spectrum name="sigma_bile" value="360:0.0167,370:0.0168,380:0.0180,390:0.0199,400:0.0236,410:0.0260,420:0.0265,430:0.0263,440:0.0251,450:0.0236,460:0.0220,470:0.0198,480:0.0169,490:0.0138,500:0.0099,510:0.0068,520:0.0047,530:0.0035,540:0.0030,550:0.0028,560:0.0028,570:0.0028,580:0.0028,590:0.0028,600:0.0027,610:0.0027,620:0.0027,630:0.0027,640:0.0028,650:0.0027,660:0.0026,670:0.0025,680:0.0024,690:0.0023,700:0.0022,710:0.0021," />
+        <spectrum name="sigma_hepatocity" value="360:269.2618,370:269.2618,380:269.2618,390:269.2618,400:269.2618,410:269.2618,420:269.2618,430:269.2618,440:269.2618,450:269.2618,460:269.2618,470:269.2618,480:269.2618,490:269.2618,500:269.2618,510:269.2618,520:269.2618,530:269.2618,540:269.2618,550:269.2618,560:269.2618,570:269.2618,580:269.2618,590:269.2618,600:269.2618,610:269.2618,620:269.2618,630:269.2618,640:269.2618,650:269.2618,660:269.2618,670:269.2618,680:269.2618,690:269.2618,700:269.2618,710:269.2618," />
+        <spectrum name="sigma_lipid_water" value="360:0.0010,370:0.0010,380:0.0011,390:0.0011,400:0.0011,410:0.0011,420:0.0011,430:0.0011,440:0.0010,450:0.0009,460:0.0008,470:0.0007,480:0.0005,490:0.0004,500:0.0004,510:0.0004,520:0.0005,530:0.0004,540:0.0005,550:0.0005,560:0.0005,570:0.0006,580:0.0007,590:0.0010,600:0.0016,610:0.0019,620:0.0020,630:0.0021,640:0.0022,650:0.0024,660:0.0029,670:0.0031,680:0.0033,690:0.0037,700:0.0044,710:0.0058," />
+        <float name="scale" value="1" />
+    </medium>
+    <shape type="rectangle" id="Floor">
+        <transform name="to_world">
+            <rotate x="1" angle="-90" />
+            <scale x="25" y="1" z="25" />
+            <translate x="0" y="-1" z="0" />
+        </transform>
+        <ref id="FloorBSDF" />
+    </shape>
+    <shape type="sphere" id="Material_0002">
+        <transform name="to_world">
+            <matrix value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1" />
+        </transform>
+        <ref id="MaterialBSDF" />
+        <ref id="parenchymaMedium" />
+    </shape>
+    <emitter type="envmap">
+        <string name="filename" value="cavidade_latitude.exr" />
+        <float name="scale" value="2.5" />
+        <transform name="to_world">
+            <scale value="1.0" />
+            <rotate x="0.57735" y="0.57735" z="0.57735" angle="180" />
+        </transform>
+    </emitter>
+</scene>
