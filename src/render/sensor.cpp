@@ -104,7 +104,8 @@ Sensor<Float, Spectrum>::sample_ray_differential(Float time, Float sample1, cons
     result_ray.o_y = temp_ray.o;
     result_ray.d_y = temp_ray.d;
     result_ray.has_differentials = true;
-
+    //result_ray.o = Point3f( -32.1260529, -14.0301647, -30.4785175);
+    //result_ray.d = Vector3f( -0.679427147, -0.290534794, -0.673771679);
     return { result_ray, result_spec };
 }
 

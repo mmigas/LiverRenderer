@@ -6,8 +6,8 @@ Scene: Liver
 Resolution:
   Width: 960
   Height: 540
-Samples Per Pixel: 32
-Max Depth : 12
+Samples Per Pixel: 128
+Max Depth : 8
 
 Glisson Capsule:
   collagen_d: 0.1

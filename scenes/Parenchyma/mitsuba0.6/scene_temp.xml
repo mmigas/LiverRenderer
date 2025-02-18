@@ -1,6 +1,6 @@
 <scene version="0.5.0">
     <default name="integrator" value="volpath_bio" />
-    <default name="spp" value="64" />
+    <default name="spp" value="32" />
     <default name="res_width" value="960" />
     <default name="res_height" value="540" />
     <default name="max_depth" value="12" />
@@ -38,7 +38,7 @@
     <medium id="layer2m" type="layer2medium">
         <phase type="isotropic" />
 
-        <float name="lambda" value="420" />
+        <float name="lambda" value="700" />
 
         <float name="blood_vf" value="0.002" />
         <float name="blood_StO2" value="0.9084" />

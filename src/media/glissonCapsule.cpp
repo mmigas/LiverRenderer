@@ -149,15 +149,15 @@ NAMESPACE_BEGIN(mitsuba)
             layer3Limit = props.get<ScalarFloat>("layer3Limit", 0.0083f);
             layer4Limit = props.get<ScalarFloat>("layer4Limit", 0.01f);
 
-            m_sigma_collagen_layer1 = props.volume<Volume>("sigma_collagen_layer1", 1.f);
-            m_sigma_collagen_layer2 = props.volume<Volume>("sigma_collagen_layer2", 1.f);
-            m_sigma_collagen_layer3 = props.volume<Volume>("sigma_collagen_layer3", 1.f);
-            m_sigma_collagen_layer4 = props.volume<Volume>("sigma_collagen_layer4", 1.f);
+            m_sigma_collagen_layer1 = props.volume<Volume>("sigma_collagen1", 1.f);
+            m_sigma_collagen_layer2 = props.volume<Volume>("sigma_collagen2", 1.f);
+            m_sigma_collagen_layer3 = props.volume<Volume>("sigma_collagen3", 1.f);
+            m_sigma_collagen_layer4 = props.volume<Volume>("sigma_collagen4", 1.f);
 
-            m_sigma_elastin_layer1 = props.volume<Volume>("sigma_elastin_layer1", 1.f);
-            m_sigma_elastin_layer2 = props.volume<Volume>("sigma_elastin_layer2", 1.f);
-            m_sigma_elastin_layer3 = props.volume<Volume>("sigma_elastin_layer3", 1.f);
-            m_sigma_elastin_layer4 = props.volume<Volume>("sigma_elastin_layer4", 1.f);
+            m_sigma_elastin_layer1 = props.volume<Volume>("sigma_elastin1", 1.f);
+            m_sigma_elastin_layer2 = props.volume<Volume>("sigma_elastin2", 1.f);
+            m_sigma_elastin_layer3 = props.volume<Volume>("sigma_elastin3", 1.f);
+            m_sigma_elastin_layer4 = props.volume<Volume>("sigma_elastin4", 1.f);
 
 
             m_scale = props.get<ScalarFloat>("scale", 1.0f);
@@ -201,7 +201,7 @@ NAMESPACE_BEGIN(mitsuba)
             return {true, 0.f, dr::Infinity<Float>};
         }
 
-        Float computeDistance(MediumInteraction3f& mei, Float surfaceDistance) const {
+        Float computeDistance(MediumInteraction3f& mei, Float surfaceDistance, UInt32 channel) const {
             Float distance = dr::Infinity<Float>;
             Int32 elementIndex = dr::zeros<Int32>();
             UnpolarizedSpectrum sigmaA = UnpolarizedSpectrum(1.0f);
@@ -249,19 +249,21 @@ NAMESPACE_BEGIN(mitsuba)
                     return i < 2;
                 },
 
-                [this, &sigma_collagen, &sigma_elastin](Int32& i, LoopState& ls) {
+                [this, &sigma_collagen, &sigma_elastin, channel](Int32& i, LoopState& ls) {
                     Float& distance = ls.distance;
                     Int32& elementIndex = ls.elementIndex;
                     UnpolarizedSpectrum& sigmaA = ls.sigmaA;
 
-                    auto rng = dr::PCG32<Float>();
-                    Float r = rng.next_float32();
+                    double random = ((double)rand() / (RAND_MAX + 1));
+                    Float r = dr::array_t<Float>(random);
                     dr::masked(r, r == 0.0f) = 0.5f;
 
                     dr::masked(sigmaA, i == 0) = sigma_collagen;
                     dr::masked(sigmaA, i == 1) = sigma_elastin;
 
-                    Float attIndex = dr::mean(sigmaA);
+                    Float attIndex = sigmaA[0];
+                    dr::masked(attIndex, channel == 1u) = sigmaA[1];
+                    dr::masked(attIndex, channel == 2u) = sigmaA[2];
                     dr::if_stmt(std::make_tuple(attIndex),
                                 attIndex > 0.0f,
                                 [&](auto attIndex) {
@@ -310,18 +312,26 @@ NAMESPACE_BEGIN(mitsuba)
                 DRJIT_MARK_USED(channel);
             }
 
-            Float sampled_t = mint + computeDistance(mei, tissueDepth);
+            Float sampled_t = mint  + (-dr::log(1 - sample) / m);;
             Mask valid_mi = active && (sampled_t <= maxt);
             mei.t = dr::select(valid_mi, sampled_t, dr::Infinity<Float>);
             mei.p = ray(sampled_t);
             mei.medium = this;
             mei.mint = mint;
-            active = dr::select(sampled_t < 0.0025, false, true);
+            mei.transmittance = Spectrum(1.0f);
+            active = true;
 
-            dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && active) = Spectrum(1.f);
-            dr::masked(mei.transmittance, sampled_t > 0.0f && sampled_t < (valid_mi) && !active) = Spectrum(0);
-            dr::masked(mei.transmittance, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = Spectrum(1.f);
-            dr::masked(active, !(sampled_t > 0.0f && sampled_t < (valid_mi))) = false;
+
+            if (dr::all_nested(sampled_t > 0.0f && sampled_t < (maxt - mint) && active)) {
+                mei.transmittance = Spectrum(1.0f); //(Spectrum(sigma) * (-sampled_t)).exp();		
+            } else if (dr::all_nested(sampled_t > 0.0f && sampled_t < (maxt - mint) && !active)) {
+                mei.transmittance = Spectrum(0.0f);
+                mei.t = dr::Infinity<Float>;
+            } else { //hit layer boundary
+                mei.transmittance = Spectrum(1.0f);
+                mei.t = dr::Infinity<Float>;
+            }
+
             std::tie(mei.sigma_s, mei.sigma_n, mei.sigma_t) =
                     get_scattering_coefficients(mei, valid_mi);
             mei.combined_extinction = combined_extinction;

@@ -263,12 +263,14 @@ public:
 
         ray.o = m_to_world.value().translation();
         ray.d = m_to_world.value() * d;
-
+        //ray.o = Point3f( -32.1260529, -14.0301647, -30.4785175);
+        //ray.d = Vector3f( -0.679427147, -0.290534794, -0.673771679);
         Float inv_z = dr::rcp(d.z());
         Float near_t = m_near_clip * inv_z,
               far_t  = m_far_clip * inv_z;
         ray.o += ray.d * near_t;
         ray.maxt = far_t - near_t;
+        ray.maxt = 3.40282347E+38;
 
         ray.o_x = ray.o_y = ray.o;
 

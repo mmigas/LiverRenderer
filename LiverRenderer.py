@@ -7,7 +7,6 @@ import yaml
 import xml.etree.ElementTree as ET
 
 
-
 def load_settings():
     try:
         with open('RendererSettings.yml', 'r') as file:
@@ -88,6 +87,16 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
     start_wavelength = 360  # Replace with the starting wavelength
     end_wavelength = 710  # Replace with the ending wavelength
     step = 10  # Step size for wavelengths
+
+    collagen_layer1 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "collagen1")
+    collagen_layer2 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "collagen2")
+    collagen_layer3 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "collagen3")
+    collagen_layer4 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "collagen4")
+    elastin_layer1 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "elastin1")
+    elastin_layer2 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "elastin2")
+    elastin_layer3 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "elastin3")
+    elastin_layer4 = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "elastin4")
+
     blood_spectrum = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "blood")
     bile_spectrum = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "bile")
     lipid_water_spectrum = importlib.import_module("prepare_medium").calculate_absorption_coefficients(start_wavelength, end_wavelength, step, "water_lipid")
@@ -104,7 +113,35 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
 
     if model.lower() == "ref":
         for element in root.findall("medium"):
+            if element.get("id") == "glissonCapsuleMedium":
+                for child in element:
+                    if child.get("name") == "sigma_collagen1":
+                        child.set("value", collagen_layer1)
+                    if child.get("name") == "sigma_collagen2":
+                        child.set("value", collagen_layer2)
+                    if child.get("name") == "sigma_collagen3":
+                        child.set("value", collagen_layer3)
+                    if child.get("name") == "sigma_collagen4":
+                        child.set("value", collagen_layer4)
+                    if child.get("name") == "sigma_elastin1":
+                        child.set("value", elastin_layer1)
+                    if child.get("name") == "sigma_elastin2":
+                        child.set("value", elastin_layer2)
+                    if child.get("name") == "sigma_elastin3":
+                        child.set("value", elastin_layer3)
+                    if child.get("name") == "sigma_elastin4":
+                        child.set("value", elastin_layer4)
+                        
             if element.get("id") == "parenchymaMedium":
+                for child in element:
+                    if child.get("name") == "sigma_blood":
+                        child.set("value", blood_spectrum)
+                    if child.get("name") == "sigma_bile":
+                        child.set("value", bile_spectrum)
+                    if child.get("name") == "sigma_lipid_water":
+                        child.set("value", lipid_water_spectrum)
+                    if child.get("name") == "sigma_hepatocity":
+                        child.set("value", hepaticity_spectrum)
                 for child in element:
                     if child.get("name") == "sigma_blood":
                         child.set("value", blood_spectrum)
@@ -223,6 +260,8 @@ def main():
     sys.path.append(liver_folder)
     parenchyma_folder = os.path.dirname(os.path.abspath(__file__)) + "\\liver\\parenchyma"
     sys.path.append(parenchyma_folder)
+    glisson_folder = os.path.dirname(os.path.abspath(__file__)) + "\\liver\\glisson"
+    sys.path.append(glisson_folder)
     settings = load_settings()
     model, mitsuba_version, variant, scene, scene_folder, width, height, spp, max_depth, glisson_params, parenchyma_params = parse_settings(settings)
     temp_scene = edit_scene(scene_folder, model, width, height, spp, max_depth, glisson_params, parenchyma_params)
