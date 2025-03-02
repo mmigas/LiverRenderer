@@ -653,7 +653,7 @@ template <typename Float_, typename Spectrum_> struct MediumInteraction
 
     DRJIT_STRUCT(MediumInteraction, t, time, wavelengths, p, n, medium,
                  sh_frame, wi, sigma_s, sigma_n, sigma_t,
-                 combined_extinction, mint)
+                 combined_extinction, mint, transmittance)
 };
 
 // -----------------------------------------------------------------------------

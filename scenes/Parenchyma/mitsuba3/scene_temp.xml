@@ -1,9 +1,9 @@
 <scene version="3.6.0">
     <default name="integrator" value="volpath" />
-    <default name="spp" value="128" />
+    <default name="spp" value="1024" />
     <default name="res_width" value="960" />
     <default name="res_height" value="540" />
-    <default name="max_depth" value="8" />
+    <default name="max_depth" value="12" />
     <integrator type="$integrator">
         <integer name="max_depth" value="$max_depth" />
     </integrator>
@@ -43,6 +43,8 @@
         <spectrum name="sigma_lipid_water" value="360:0.0010,370:0.0010,380:0.0011,390:0.0011,400:0.0011,410:0.0011,420:0.0011,430:0.0011,440:0.0010,450:0.0009,460:0.0008,470:0.0007,480:0.0005,490:0.0004,500:0.0004,510:0.0004,520:0.0005,530:0.0004,540:0.0005,550:0.0005,560:0.0005,570:0.0006,580:0.0007,590:0.0010,600:0.0016,610:0.0019,620:0.0020,630:0.0021,640:0.0022,650:0.0024,660:0.0029,670:0.0031,680:0.0033,690:0.0037,700:0.0044,710:0.0058," />
         <float name="scale" value="1" />
     </medium>
+    <medium id="homogeneousMedium" type="homogeneous">
+    </medium>
 
     <shape type="obj" id="liver2">
         <string name="filename" value="liver2.obj" />
@@ -51,7 +53,7 @@
             <translate x="-5" y="5" z="-5" />
         </transform>
         <ref id="MaterialBSDF" />
-        <ref name="interior" id="parenchymaMedium" />
+        <ref name="interior" id="homogeneousMedium" />
     </shape>
     <emitter type="envmap">
         <string name="filename" value="cavidade_latitude.exr" />

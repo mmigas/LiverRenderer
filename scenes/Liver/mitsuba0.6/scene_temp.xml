@@ -1,6 +1,6 @@
 <scene version="0.5.0">
     <default name="integrator" value="volpath_bio" />
-    <default name="spp" value="64" />
+    <default name="spp" value="1024" />
     <default name="res_width" value="960" />
     <default name="res_height" value="540" />
     <default name="max_depth" value="12" />

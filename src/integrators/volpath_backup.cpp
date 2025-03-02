@@ -293,7 +293,7 @@ public:
             Mask intersect = active_surface && needs_intersection;
             if (dr::any_or<true>(medium != nullptr)) {
                 dr::masked(result, mei.transmittance == 0.f) = Spectrum(0.f);
-                dr::masked(throughput, medium != nullptr) = mei.transmittance;
+                dr::masked(throughput, medium != nullptr) *= mei.transmittance;
             }
             if (dr::any_or<true>(intersect))
                 dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);

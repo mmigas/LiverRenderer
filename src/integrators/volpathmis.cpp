@@ -163,6 +163,7 @@ public:
         Mask needs_intersection = true, last_event_was_null = false;
         Interaction3f last_scatter_event = dr::zeros<Interaction3f>();
 
+        dr::PCG32<Float> rng;
         struct LoopState {
             Mask active;
             UInt32 depth;
@@ -180,11 +181,11 @@ public:
             Mask specular_chain;
             Mask valid_ray;
             Sampler* sampler;
-
+            dr::PCG32<Float> rng;
             DRJIT_STRUCT(LoopState, active, depth, ray, p_over_f, \
                 p_over_f_nee, result, si, mei, medium, eta, last_scatter_event, \
                 last_event_was_null, needs_intersection, specular_chain, \
-                valid_ray, sampler)
+                valid_ray, sampler, rng)
         } ls = {
             active,
             depth,
@@ -201,7 +202,8 @@ public:
             needs_intersection,
             specular_chain,
             valid_ray,
-            sampler
+            sampler,
+            rng
         };
 
         /* Set up a Dr.Jit loop (optimizes away to a normal loop in scalar mode,
@@ -460,7 +462,7 @@ public:
 
         Mask needs_intersection = true;
         DirectionSample3f dir_sample = ds;
-
+        dr::PCG32<Float> rng;
         struct LoopState {
             Mask active;
             Ray3f ray;
@@ -472,10 +474,11 @@ public:
             WeightMatrix p_over_f_uni;
             DirectionSample3f dir_sample;
             Sampler* sampler;
+            dr::PCG32<Float> rng;
 
             DRJIT_STRUCT(LoopState, active, ray, total_dist, \
                 needs_intersection, medium, si, p_over_f_nee, p_over_f_uni, \
-                dir_sample, sampler)
+                dir_sample, sampler, rng)
         } ls = {
             active,
             ray,
@@ -486,7 +489,8 @@ public:
             p_over_f_nee,
             p_over_f_uni,
             dir_sample,
-            sampler
+            sampler,
+            rng
         };
 
         dr::tie(ls) = dr::while_loop(dr::make_tuple(ls),

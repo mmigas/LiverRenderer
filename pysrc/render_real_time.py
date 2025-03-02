@@ -3,7 +3,6 @@
 import sys
 import glfw
 import OpenGL.GL as gl
-from PIL import Image
 import numpy as np  # Import NumPy
 import mitsuba as mi
 import drjit as dr
@@ -249,7 +248,7 @@ def load_texture_from_mitsuba(scene, width, height):
 
 
 def main():
-    scene_path = "C:/dev/LiverRenderer/resources/data/scenes/liver/liver.xml"
+    scene_path = "C:/dev/LiverRenderer/scenes/Liver/mitsuba3/scene_temp.xml"
     scene = mi.load_file(scene_path)
     # Initialize GLFW
     if not glfw.init():
@@ -359,7 +358,6 @@ def main():
 
 if __name__ == "__main__":
     import mitsuba as mi
-
-    mi.set_variant('cuda_ad_spectral')
+    mi.set_variant('cuda_rgb')
 
     main()

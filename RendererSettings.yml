@@ -1,13 +1,13 @@
 Model: Ref
 Variant: scalar_rgb # only for Mitsuba3
 
-Scene: Liver
+Scene: SphereLiverConstEnv
 
 Resolution:
   Width: 960
   Height: 540
-Samples Per Pixel: 128
-Max Depth : 8
+Samples Per Pixel: 16
+Max Depth : 12
 
 Glisson Capsule:
   collagen_d: 0.1
