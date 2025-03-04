@@ -1,0 +1,65 @@
+<scene version="3.6.0">
+    <default name="integrator" value="biovolpath" />
+    <default name="spp" value="1" />
+    <default name="res_width" value="960" />
+    <default name="res_height" value="540" />
+    <default name="max_depth" value="12" />
+    <integrator type="$integrator">
+        <integer name="max_depth" value="$max_depth" />
+    </integrator>
+    <sensor type="perspective">
+        <float name="fov" value="45" />
+        <transform name="to_world">
+            <lookat up="-0.317370, 0.895343, -0.312469" target="6.826270, 5.011984, 5.896974" origin="7.481132, 5.343665, 6.507640" />
+        </transform>
+        <sampler type="ldsampler">
+            <integer name="sample_count" value="$spp" />
+        </sampler>
+        <film type="hdrfilm">
+            <integer name="width" value="$res_width" />
+            <integer name="height" value="$res_height" />
+            <string name="file_format" value="openexr" />
+            <string name="pixel_format" value="rgb" />
+            <rfilter type="tent" />
+        </film>
+    </sensor>
+    <bsdf type="dielectric" id="MaterialBSDF">
+        <float name="int_ior" value="1.5" />
+        <float name="ext_ior" value="1" />
+    </bsdf>
+    <bsdf type="diffuse" id="FloorBSDF">
+        <texture name="reflectance" type="checkerboard">
+            <rgb name="color0" value="0.325, 0.31, 0.25" />
+            <rgb name="color1" value="0.725, 0.71, 0.68" />
+            <transform name="to_uv">
+                <scale x="10.000000" y="10.000000" />
+            </transform>
+        </texture>
+    </bsdf>
+    <medium id="parenchymaMedium" type="parenchyma">
+        <rgb name="sigma_blood" value="0.004611074674964207, 0.20900034649954347, 0.24625187839886722" />
+        <rgb name="sigma_bile" value="0.002160333333333333, 0.0030312499999999997, 0.025356499999999997" />
+        <rgb name="sigma_lipid_water" value="0.004632281950333333, 0.00048109802439999993, 0.00106273247395" />
+        <float name="sigma_hepatocity" value="269.26180490217416" />
+        <float name="scale" value="1" />
+    </medium>
+
+    <shape type="obj" id="liver2">
+        <string name="filename" value="liver2.obj" />
+        <transform name="to_world">
+            <scale value="1.0" />
+            <translate x="-5" y="5" z="-5" />
+        </transform>
+        <ref id="MaterialBSDF" />
+        <ref name="interior" id="parenchymaMedium" />
+    </shape>
+    <emitter type="envmap">
+        <string name="filename" value="cavidade_latitude.exr" />
+        <float name="scale" value="2.5" />
+        <transform name="to_world">
+            <translate x="-3" y="3" z="4" />
+            <scale value="1.0" />
+            <rotate x="0.57735" y="0.57735" z="0.57735" angle="180" />
+        </transform>
+    </emitter>
+</scene>
