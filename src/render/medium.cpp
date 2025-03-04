@@ -52,10 +52,10 @@ Medium<Float, Spectrum>::sample_interaction(const Ray3f &ray, Float sample,
 
     // initialize basic medium interaction fields
     MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
-    mei.wi          = -ray.d;
-    mei.sh_frame    = Frame3f(mei.wi);
-    mei.time        = ray.time;
-    mei.wavelengths = ray.wavelengths;
+    mei.wi                  = -ray.d;
+    mei.sh_frame            = Frame3f(mei.wi);
+    mei.time                = ray.time;
+    mei.wavelengths         = ray.wavelengths;
 
     auto [aabb_its, mint, maxt] = intersect_aabb(ray);
     aabb_its &= (dr::isfinite(mint) || dr::isfinite(maxt));
@@ -86,6 +86,14 @@ Medium<Float, Spectrum>::sample_interaction(const Ray3f &ray, Float sample,
         get_scattering_coefficients(mei, valid_mi);
     mei.combined_extinction = combined_extinction;
     return mei;
+}
+template <typename Float, typename Spectrum>
+typename Medium<Float, Spectrum>::MediumInteraction3f
+Medium<Float, Spectrum>::sample_interaction(const Ray3f &ray, Float sample,
+                                            UInt32 channel, Mask active,
+                                            Float tissueDepth) const {
+    //Not implemented
+    NotImplementedError("sample_interaction");
 }
 
 MI_VARIANT

@@ -1,3 +1,4 @@
+
 #include <random>
 #include <mitsuba/core/ray.h>
 #include <mitsuba/core/properties.h>
@@ -125,6 +126,7 @@ public:
         Mask needs_intersection = true;
         Interaction3f last_scatter_event = dr::zeros<Interaction3f>();
         Float last_scatter_direction_pdf = 1.f;
+        Float tissueDepth = 0.0f;
 
         /* Set up a Dr.Jit loop (optimizes away to a normal loop in scalar mode,
            generates wavefront or megakernel renderer based on configuration).
@@ -145,11 +147,12 @@ public:
             Mask specular_chain;
             Mask valid_ray;
             Sampler* sampler;
+            Float tissueDepth;
 
             DRJIT_STRUCT(LoopState, active, depth, ray, throughput, result, \
                 si, mei, medium, eta, last_scatter_event, \
                 last_scatter_direction_pdf, needs_intersection, \
-                specular_chain, valid_ray, sampler)
+                specular_chain, valid_ray, sampler, tissueDepth)
         } ls = {
             active,
             depth,
@@ -165,7 +168,8 @@ public:
             needs_intersection,
             specular_chain,
             valid_ray,
-            sampler
+            sampler,
+            tissueDepth
         };
 
         dr::tie(ls) = dr::while_loop(dr::make_tuple(ls),
@@ -187,6 +191,7 @@ public:
             Mask& specular_chain = ls.specular_chain;
             Mask& valid_ray = ls.valid_ray;
             Sampler* sampler = ls.sampler;
+            Float& tissueDepth = ls.tissueDepth;
 
             // ----------------- Handle termination of paths ------------------
             // Russian roulette: try to keep path weights equal to one, while accounting for the
@@ -218,7 +223,7 @@ public:
             }
 
             if (dr::any_or<true>(active_medium)) {
-                mei = medium->sample_interaction(ray, sampler->next_1d(active_medium), channel, active_medium);
+                 mei = medium->sample_interaction(Ray3f(ray, si.t), sampler->next_1d(active_medium), channel, active_medium, tissueDepth);
                 dr::masked(ray.maxt, active_medium && medium->is_homogeneous() && mei.is_valid()) = mei.t;
                 Mask intersect = needs_intersection && active_medium;
                 if (dr::any_or<true>(intersect))
@@ -237,7 +242,6 @@ public:
 
                 // Handle null and real scatter events
                 Mask null_scatter = sampler->next_1d(active_medium) >= index_spectrum(mei.sigma_t, channel) / index_spectrum(mei.combined_extinction, channel);
-
                 act_null_scatter |= null_scatter && active_medium;
                 act_medium_scatter |= !act_null_scatter && active_medium;
 
@@ -260,28 +264,18 @@ public:
             }
 
             if (dr::any_or<true>(act_medium_scatter)) {
-                if (dr::any_or<true>(is_spectral))
-                    dr::masked(throughput, is_spectral && act_medium_scatter) *=
-                        mei.sigma_s * index_spectrum(mei.combined_extinction, channel) / index_spectrum(mei.sigma_t, channel);
-                if (dr::any_or<true>(not_spectral))
-                    dr::masked(throughput, not_spectral && act_medium_scatter) *= mei.sigma_s / mei.sigma_t;
+                if (dr::any_or<true>(is_spectral)) {
+                    dr::masked(throughput, is_spectral && act_medium_scatter) *=  index_spectrum(mei.transmittance, channel) ;
+                    dr::masked(tissueDepth, is_spectral && act_medium_scatter) += dr::abs(Frame3f::cos_theta(-ray.d) * mei.t);
+                }
+                if (dr::any_or<true>(not_spectral)) {
+                    dr::masked(throughput, not_spectral && act_medium_scatter) *= mei.transmittance;
+                    dr::masked(tissueDepth, not_spectral && act_medium_scatter) += dr::abs(Frame3f::cos_theta(-ray.d) * mei.t);
+                }
 
                 PhaseFunctionContext phase_ctx(sampler);
                 auto phase = mei.medium->phase_function();
 
-                // --------------------- Emitter sampling ---------------------
-                Mask sample_emitters = mei.medium->use_emitter_sampling();
-                valid_ray |= act_medium_scatter;
-                specular_chain &= !act_medium_scatter;
-                specular_chain |= act_medium_scatter && !sample_emitters;
-
-                Mask active_e = act_medium_scatter && sample_emitters;
-                if (dr::any_or<true>(active_e)) {
-                    auto [emitted, ds] = sample_emitter(mei, scene, sampler, medium, channel, active_e);
-                    auto [phase_val, phase_pdf] = phase->eval_pdf(phase_ctx, mei, ds.d, active_e);
-                    dr::masked(result, active_e) += throughput * phase_val * emitted *
-                                                    mis_weight(ds.pdf, dr::select(ds.delta, 0.f, phase_pdf));
-                }
 
                 // ------------------ Phase function sampling -----------------
                 dr::masked(phase, !act_medium_scatter) = nullptr;
@@ -300,6 +294,10 @@ public:
             // --------------------- Surface Interactions ---------------------
             active_surface |= escaped_medium;
             Mask intersect = active_surface && needs_intersection;
+            if (dr::any_or<true>(medium != nullptr)) {
+               //dr::masked(result, mei.transmittance == 0.f) = Spectrum(0.f);
+               //dr::masked(throughput, medium != nullptr) *= mei.transmittance;
+            }
             if (dr::any_or<true>(intersect))
                 dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);
 
@@ -325,13 +323,14 @@ public:
             }
             active_surface &= si.is_valid();
             if (dr::any_or<true>(active_surface)) {
+
                 // --------------------- Emitter sampling ---------------------
                 BSDFContext ctx;
                 BSDFPtr bsdf  = si.bsdf(ray);
                 Mask active_e = active_surface && has_flag(bsdf->flags(), BSDFFlags::Smooth) && (depth + 1 < (uint32_t) m_max_depth);
 
                 if (likely(dr::any_or<true>(active_e))) {
-                    auto [emitted, ds] = sample_emitter(si, scene, sampler, medium, channel, active_e);
+                    auto [emitted, ds] = sample_emitter(si, scene, sampler, medium, channel, active_e, tissueDepth);
 
                     // Query the BSDF for that emitter-sampled direction
                     Vector3f wo       = si.to_local(ds.d);
@@ -373,7 +372,8 @@ public:
             active &= (active_surface | active_medium);
         },
         "Volpath integrator");
-
+        //Log(Info, "Result: %f %f %f, Valid ray %d", ls.result[0], ls.result[1], ls.result[2], valid_ray);
+        //ls.result = Spectrum(1.0f);
         return { ls.result, ls.valid_ray };
     }
 
@@ -383,7 +383,7 @@ public:
     std::tuple<Spectrum, DirectionSample3f>
     sample_emitter(const Interaction &ref_interaction, const Scene *scene,
                    Sampler *sampler, MediumPtr medium,
-                   UInt32 channel, Mask active) const {
+                   UInt32 channel, Mask active, Float tissueDepth) const {
         Spectrum transmittance(1.0f);
 
         auto [ds, emitter_val] = scene->sample_emitter_direction(ref_interaction, sampler->next_2d(active), false, active);
@@ -417,10 +417,10 @@ public:
             Spectrum transmittance;
             DirectionSample3f dir_sample;
             Sampler* sampler;
-
+             Float tissueDepth;
             DRJIT_STRUCT(LoopState, active, ray, total_dist, \
                 needs_intersection, medium, si, transmittance, \
-                dir_sample, sampler)
+                dir_sample, sampler, tissueDepth)
         } ls = {
             active,
             ray,
@@ -430,7 +430,8 @@ public:
             si,
             transmittance,
             dir_sample,
-            sampler
+            sampler,
+            tissueDepth
         };
 
         dr::tie(ls) = dr::while_loop(dr::make_tuple(ls),
@@ -446,6 +447,7 @@ public:
             Spectrum& transmittance = ls.transmittance;
             DirectionSample3f& dir_sample = ls.dir_sample;
             Sampler* sampler = ls.sampler;
+            Float& tissueDepth = ls.tissueDepth;
 
             Float remaining_dist = max_dist - total_dist;
             ray.maxt = remaining_dist;
@@ -458,7 +460,9 @@ public:
             Mask active_surface = active && !active_medium;
 
             if (dr::any_or<true>(active_medium)) {
-                auto mei = medium->sample_interaction(ray, sampler->next_1d(active_medium), channel, active_medium);
+                auto mei = medium->sample_interaction(Ray3f(ray, si.t), sampler->next_1d(active_medium), channel, 
+                active_medium, 
+                tissueDepth);
                 dr::masked(ray.maxt, active_medium && medium->is_homogeneous() && mei.is_valid()) = dr::minimum(mei.t, remaining_dist);
                 Mask intersect = needs_intersection && active_medium;
                 if (dr::any_or<true>(intersect))
@@ -495,7 +499,7 @@ public:
                     if (dr::any_or<true>(is_spectral))
                         dr::masked(transmittance, is_spectral) *= mei.sigma_n;
                     if (dr::any_or<true>(not_spectral))
-                        dr::masked(transmittance, not_spectral) *= mei.sigma_n / mei.combined_extinction;
+                        dr::masked(transmittance, not_spectral) *= mei.transmittance;
                 }
             }
 
@@ -557,5 +561,5 @@ public:
 };
 
 MI_IMPLEMENT_CLASS_VARIANT(BioVolumetricPathIntegrator, MonteCarloIntegrator);
-MI_EXPORT_PLUGIN(BioVolumetricPathIntegrator, "Volumetric Path Tracer integrator");
+MI_EXPORT_PLUGIN(BioVolumetricPathIntegrator, "BioVolumetric Path Tracer integrator");
 NAMESPACE_END(mitsuba)

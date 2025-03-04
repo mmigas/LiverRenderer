@@ -569,6 +569,9 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
     /// mint used when sampling the given distance ``t``
     Float mint;
 
+    //medium transmittance
+    UnpolarizedSpectrum transmittance;
+    
     //! @}
     // =============================================================
 
@@ -589,6 +592,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
         sigma_t             = dr::zeros<UnpolarizedSpectrum>(size);
         combined_extinction = dr::zeros<UnpolarizedSpectrum>(size);
         mint                = dr::zeros<Float>(size);
+        transmittance       = dr::zeros<UnpolarizedSpectrum>(size);
 
         if constexpr (dr::is_jit_v<Float_>) {
             medium      = dr::zeros<MediumPtr>(size);
@@ -612,7 +616,7 @@ struct MediumInteraction : Interaction<Float_, Spectrum_> {
 
     DRJIT_STRUCT(MediumInteraction, t, time, wavelengths, p, n, medium,
                  sh_frame, wi, sigma_s, sigma_n, sigma_t,
-                 combined_extinction, mint)
+                 combined_extinction, mint, transmittance)
 };
 
 // -----------------------------------------------------------------------------

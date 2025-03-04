@@ -50,9 +50,30 @@ public:
      *                 The MediumInteraction will always be valid,
      *                 except if the ray missed the Medium's bounding box.
      */
-    MediumInteraction3f sample_interaction(const Ray3f &ray, Float sample,
-                                           UInt32 channel, Mask active) const;
+    virtual MediumInteraction3f sample_interaction(const Ray3f &ray, Float 
+                                    sample, UInt32 channel, Mask active) const;
 
+    /**
+     * \brief Sample a free-flight distance in the organic medium.
+     *
+     * This function samples a (tentative) free-flight distance according to an
+     * exponential transmittance. It is then up to the integrator to then decide
+     * whether the MediumInteraction corresponds to a real or null scattering
+     * event.
+     *
+     * \param ray      Ray, along which a distance should be sampled
+     * \param sample   A uniformly distributed random sample
+     * \param channel  The channel according to which we will sample the
+     * free-flight distance. This argument is only used when rendering in RGB
+     * modes.
+     *
+     * \return         This method returns a MediumInteraction.
+     *                 The MediumInteraction will always be valid,
+     *                 except if the ray missed the Medium's bounding box.
+     */
+    virtual MediumInteraction3f sample_interaction(const Ray3f &ray, Float 
+                                    sample, UInt32 channel, Mask active,
+                                    Float tissueDepth) const;
     /**
      * \brief Compute the transmittance and PDF
      *
