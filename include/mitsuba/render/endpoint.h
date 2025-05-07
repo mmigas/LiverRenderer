@@ -387,11 +387,11 @@ public:
 
     MI_DECLARE_CLASS()
 
+    field<Transform4f, ScalarTransform4f> m_to_world;
 protected:
     Endpoint(const Properties &props);
 
 protected:
-    field<Transform4f, ScalarTransform4f> m_to_world;
     ref<Medium> m_medium;
     Shape *m_shape = nullptr;
     bool m_needs_sample_2 = true;

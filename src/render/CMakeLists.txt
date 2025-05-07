@@ -49,7 +49,15 @@ add_library(mitsuba-render OBJECT
   ${INC_DIR}/ior.h
   ${INC_DIR}/microfacet.h
   ${INC_DIR}/records.h
-
+  ${INC_DIR}/vaeconfig.h
+  ${INC_DIR}/vaehelpereigen.h        
+  ${INC_DIR}/json.hpp
+  ${INC_DIR}/scattereigen.h
+        
+  polynomials.cpp         ${INC_DIR}/polynomials.h
+  sss_particle_tracer.cpp ${INC_DIR}/sss_particle_tracer.h
+  subsurface.cpp   ${INC_DIR}/subsurface.h
+  vaehelper.cpp    ${INC_DIR}/vaehelper.h
   bsdf.cpp         ${INC_DIR}/bsdf.h
   emitter.cpp      ${INC_DIR}/emitter.h
   endpoint.cpp     ${INC_DIR}/endpoint.h

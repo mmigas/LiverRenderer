@@ -228,6 +228,18 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
     /// Stores a pointer to the parent instance (if applicable)
     ShapePtr instance = nullptr;
 
+    //VAE
+    int sampledColorChannel = -1;
+
+    size_t nPolyCoeffs;
+    float polyCoeffs[3][20];
+    float kernelEps[3];
+
+    mutable Spectrum predAbsorption;
+    mutable Spectrum noAbsorption;
+    mutable float missedProjection;
+    mutable bool filled = false;
+    
     //! @}
     // =============================================================
 
@@ -345,6 +357,13 @@ struct SurfaceInteraction : Interaction<Float_, Spectrum_> {
     // Returns the BSDF of the intersected shape
     BSDFPtr bsdf() const { return shape->bsdf(); }
 
+    auto has_subsurface() const { return shape->has_subsurface();  }
+
+    Spectrum subsurface_sample(const Scene *scene, Sampler *sampler,
+                               const Vector3f &d, UInt32 depth) const {
+        return shape->subsurface()->sample(scene, sampler, *this, d, depth);
+    }
+    
     /// Computes texture coordinate partials
     void compute_uv_partials(const RayDifferential3f &ray) {
         if (!ray.has_differentials)

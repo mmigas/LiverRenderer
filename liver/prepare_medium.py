@@ -20,9 +20,9 @@ ENZYME_MAP = {
 }
 # Replace these with actual argument values
 ARGUMENT_VALUES = {
-    "blood_vf": 0.002, "blood_C_HbT": 0.0177, "blood_St0_2": 0.9084, "blood_R": 0.004,
+    "blood_vf": 0.004, "blood_C_HbT": 0.0177, "blood_St0_2": 0.9084, "blood_R": 0.004,
     "bile_vf": 0.0005,
-    "water_lipid_water_vf": 0.7, "water_lipid_lipid_vf": 0.019,
+    "water_lipid_water_vf": 0.7, "water_lipid_lipid_vf": 0.289,
     "hepatocity_vf": 0.8, "hepatocity_l_axis": 0.0020, "hepatocity_g_axis": 0.0030,
 
     "collagen_d": 3.5, "collagen_n_med": 1.35, "collagen_n_p": 1.5,

@@ -1548,6 +1548,30 @@ Mesh<Float, Spectrum>::compute_surface_interaction(const Ray3f &ray,
     si.shape    = this;
     si.instance = nullptr;
 
+    //VAE
+
+    const PolyStorage *polyCoeffs = getPolyCoeffs();
+    if (polyCoeffs) {
+        const PolyStorage &c0 = polyCoeffs[dr::slice(fi[0], 0)];
+        const PolyStorage &c1 = polyCoeffs[dr::slice(fi[1])];
+        const PolyStorage &c2 = polyCoeffs[dr::slice(fi[2])];
+
+        for (int i = 0; i < polyCoeffs[dr::slice(fi[0])].nPolyCoeffs; ++i) {
+            si.polyCoeffs[0][i] =   dr::slice(b0) * c0.coeffs[0][i] +
+                                    dr::slice(b1) * c1.coeffs[0][i] +
+                                    dr::slice(b2) * c2.coeffs[0][i];
+            if (hasRgb()) {
+                si.polyCoeffs[1][i] = dr::slice(b0) * c0.coeffs[1][i] +
+                                      dr::slice(b1) * c1.coeffs[1][i] +
+                                      dr::slice(b2) * c2.coeffs[1][i];
+                si.polyCoeffs[2][i] = dr::slice(b0) * c0.coeffs[2][i] +
+                                      dr::slice(b1) * c1.coeffs[2][i] +
+                                      dr::slice(b2) * c2.coeffs[2][i];
+            }
+        }
+        si.nPolyCoeffs = polyCoeffs[dr::slice(fi[0])].nPolyCoeffs;
+    }
+    
     return si;
 }
 

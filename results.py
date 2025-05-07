@@ -63,8 +63,8 @@ def calculate_mse(reference, rendered):
 
     # Normalize by the total number of pixels
     err /= float(rendered.shape[0] * reference.shape[1])
-
-    return err
+    rmse = np.sqrt(err)
+    return rmse
 
 
 def calculate_ssim(reference, rendered):
@@ -76,7 +76,8 @@ def calculate_ssim(reference, rendered):
     ssim_values = []
     ssim_maps = []
     for i in range(reference.shape[-1]):  # Loop through R, G, B channels
-        ssim_channel, ssim_map = ssim(reference[..., i], rendered[..., i], data_range=reference.max() - reference.min(), full=True)
+        ssim_channel, ssim_map = ssim(reference[..., i], rendered[..., i], data_range=reference.max() - reference.min(),
+                                      full=True)
         ssim_values.append(ssim_channel)
         ssim_maps.append(ssim_map)
 
@@ -85,14 +86,41 @@ def calculate_ssim(reference, rendered):
 
     return avg_ssim, ssim_map
 
-def visualize_ssim(ssim_map):
+
+def visualize_ssim(ssim_map, ssim_value, output_path='results/ssim_map.png'):
     """
-    Visualizes the SSIM map using matplotlib.
+    Visualizes the SSIM map using matplotlib and includes the SSIM value in the title.
     """
     plt.imshow(ssim_map, cmap='viridis')
     plt.colorbar()
-    plt.title('SSIM Map')
+    plt.axis('off')
+    name = output_path.split('/')[-1].split('.')[0]
+    name = name.replace('SSIM', '')
+    plt.title(f'{name}\'s SSIM Map\n (SSIM: {ssim_value:.4f})')  # Add SSIM value to the title
+    plt.savefig(output_path, format='png')  # Save the plot as a PNG file
     plt.show()
+
+
+def visualize_rmse(reference, rendered, rmse_value, output_path='results/rmse_map.png'):
+    """
+    Visualizes the pixel-wise squared difference (RMSE map) between two images and includes the RMSE value in the title.
+    """
+    # Compute the squared difference
+    mse_map = (rendered.astype(np.float32) - reference.astype(np.float32)) ** 2
+
+    # Normalize the MSE map for visualization
+    mse_map_normalized = mse_map / mse_map.max()
+
+    # Display the RMSE map
+    plt.imshow(mse_map_normalized.mean(axis=-1), cmap='viridis')  # Average across channels
+    plt.colorbar()
+    plt.axis('off')  # Hide axes
+    name = output_path.split('/')[-1].split('.')[0]
+    name = name.replace('RSME', '')
+    plt.title(f'{name}\'s RMSE Map\n (RMSE: {rmse_value:.4f})')  # Add RMSE value to the title
+    plt.savefig(output_path, format='png')  # Save the plot as a PNG file
+    plt.show()
+
 
 def compare_images(reference_path, rendered_path):
     """
@@ -111,12 +139,16 @@ def compare_images(reference_path, rendered_path):
 
 
 def main():
-    image_path1 = 'C:\dev\LiverRenderer\scenes\Liver\mitsuba0.6\outputs\liver - 700.exr'
-    image_path2 = 'C:\dev\LiverRenderer\scenes\Liver\mitsuba3\outputs\liver - 700.exr'
-    mse, ssim, ssim_map = compare_images(image_path1, image_path2)
-    print(f"MSE: {mse:.4f}")
+    image_path1 = 'D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.png'
+    image_path2 = 'C:\\Users\\Miguel\\Downloads\\Surgery2.0\\Surgery2.0\\denoised.png'
+    reference = load_image(image_path1)
+    rendered = load_image(image_path2)
+    rmse, ssim, ssim_map = compare_images(image_path1, image_path2)
+    print(f"MSE: {rmse:.4f}")
     print(f"SSIM: {ssim:.4f}")
-    visualize_ssim(ssim_map)
+    visualize_ssim(ssim_map, ssim, 'results/OptixWhiteBackgroundSSIM.png')
+    visualize_rmse(reference, rendered, rmse, 'results/OptixWhiteBackgroundRSME.png')
+
 
 if __name__ == "__main__":
     OPENCV_IO_ENABLE_OPENEXR = True

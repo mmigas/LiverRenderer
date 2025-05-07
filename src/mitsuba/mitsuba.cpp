@@ -13,7 +13,7 @@
 #include <mitsuba/render/integrator.h>
 #include <mitsuba/render/records.h>
 #include <mitsuba/render/scene.h>
-
+#include <realtime.hpp>
 #if !defined(_WIN32)
 #  include <signal.h>
 #else
@@ -124,6 +124,8 @@ void render(Object *scene_, size_t sensor_i, fs::path filename) {
         develop_callback = [&]() { film->write(filename); };
     }
 
+    scene->preprocess();
+    
     integrator->render(scene, (uint32_t) sensor_i,
                        0 /* seed */,
                        0 /* spp */,
@@ -171,7 +173,9 @@ int main(int argc, char *argv[]) {
     auto arg_mode      = parser.add(StringVec{ "-m", "--mode" }, true);
     auto arg_paths     = parser.add(StringVec{ "-a" }, true);
     auto arg_extra     = parser.add("", true);
-
+    //auto arg_interactive = parser.add(StringVec{ "-i", "--interactive" });
+    auto arg_imode = parser.add(StringVec{ "--imode" }, true); // Takes a value (ema/optix)
+   
     // Specialized flags for the JIT compiler
     auto arg_optim_lev = parser.add(StringVec{ "-O" }, true);
     auto arg_wavefront = parser.add(StringVec{ "-W" });
@@ -180,6 +184,7 @@ int main(int argc, char *argv[]) {
 
     xml::ParameterList params;
     std::string error_msg, mode;
+    std::string interactive_sub_mode; // Store the selected interactive mode
 
 #if !defined(_WIN32)
     /* Initialize signal handlers */
@@ -251,7 +256,16 @@ int main(int argc, char *argv[]) {
         mode = (*arg_mode ? arg_mode->as_string() : MI_DEFAULT_VARIANT);
         bool cuda = string::starts_with(mode, "cuda_");
         bool llvm = string::starts_with(mode, "llvm_");
-
+        bool interactive_mode = *arg_imode;
+        if (interactive_mode) {
+            interactive_sub_mode = arg_imode->as_string();
+            string::to_lower(interactive_sub_mode); // Normalize to lowercase
+            if (interactive_sub_mode != "ema" && interactive_sub_mode != "optix") {
+                Throw("Invalid value for --imode: '%s'. Must be 'ema' or 'optix'.", interactive_sub_mode);
+            }
+            Log(Info, "Interactive mode requested: %s", interactive_sub_mode);
+        }
+        
 #if defined(MI_ENABLE_CUDA)
         if (cuda)
             jit_init((uint32_t) JitBackend::CUDA);
@@ -300,7 +314,7 @@ int main(int argc, char *argv[]) {
         DRJIT_MARK_USED(arg_optim_lev);
         DRJIT_MARK_USED(arg_source);
 #endif
-
+        
         if (!cuda && !llvm &&
             (*arg_optim_lev || *arg_wavefront || *arg_source || *arg_vec_width))
             Throw("Specified an argument that only makes sense in a JIT (LLVM/CUDA) mode!");
@@ -339,7 +353,10 @@ int main(int argc, char *argv[]) {
             Log(Warn, "Renderer is compiled in debug mode, performance will be considerably reduced.");
 #endif
         }
-
+        //jit_set_flag(JitFlag::Debug, true);
+        //jit_set_flag(JitFlag::SymbolicLoops, false);
+        //jit_set_flag(JitFlag::SymbolicCalls, false);
+        //jit_set_flag(JitFlag::SymbolicConditionals, false);
         while (arg_extra && *arg_extra) {
             fs::path filename(arg_extra->as_string());
             ref<FileResolver> fr2 = new FileResolver(*fr);
@@ -362,8 +379,21 @@ int main(int argc, char *argv[]) {
                 Throw("Root element of the input file is expanded into "
                       "multiple objects, only a single object is expected!");
 
-            MI_INVOKE_VARIANT(mode, render, parsed[0].get(), sensor_i, filename);
-            arg_extra = arg_extra->next();
+            if (interactive_mode) {
+                Log(Info, "Entering interactive mode...");
+                // Check requirements for interactive mode
+                if (!cuda) {
+                    Throw("Interactive mode currently requires a CUDA variant (e.g., cuda_rgb).");
+                }
+                // Call the interactive renderer
+                MI_INVOKE_VARIANT(mode, runRealtimeRenderer, parsed[0].get(), interactive_sub_mode);
+                Log(Info, "Exited interactive mode.");
+                // Break after first scene in interactive mode
+                break;
+            } else {
+                MI_INVOKE_VARIANT(mode, render, parsed[0].get(), sensor_i, filename);
+                arg_extra = arg_extra->next();
+            }
         }
     } catch (const std::exception &e) {
         error_msg = std::string("Caught a critical exception: ") + e.what();
@@ -397,7 +427,7 @@ int main(int argc, char *argv[]) {
         std::cerr << "\x1b[0m";
 #endif
     }
-
+cleanup:
     MI_INVOKE_VARIANT(mode, scene_static_accel_shutdown);
     color_management_static_shutdown();
     Profiler::static_shutdown();

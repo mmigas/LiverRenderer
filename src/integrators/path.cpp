@@ -1,6 +1,7 @@
 #include <mitsuba/core/ray.h>
 #include <mitsuba/core/properties.h>
 #include <mitsuba/render/bsdf.h>
+#include <mitsuba/render/subsurface.h>
 #include <mitsuba/render/emitter.h>
 #include <mitsuba/render/integrator.h>
 #include <mitsuba/render/records.h>
@@ -228,6 +229,10 @@ public:
                 wo = si.to_local(ds.d);
             }
 
+            // ---------------------- BSSRDF sampling ----------------------
+                if (dr::any_or<true>(si.has_subsurface())) {
+                    ls.result[active_em] = ls.throughput * si.subsurface_sample(scene,ls.sampler, -ls.ray.d, ls.depth);
+                }
             // ------ Evaluate BSDF * cos(theta) and sample direction -------
 
             Float sample_1 = ls.sampler->next_1d();

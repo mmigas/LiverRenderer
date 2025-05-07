@@ -1,6 +1,7 @@
 #include <mitsuba/core/properties.h>
 #include <mitsuba/core/plugin.h>
 #include <mitsuba/render/bsdf.h>
+#include <mitsuba/render/subsurface.h>
 #include <mitsuba/render/medium.h>
 #include <mitsuba/render/mesh.h>
 #include <mitsuba/render/scene.h>
@@ -169,6 +170,15 @@ MI_VARIANT Scene<Float, Spectrum>::~Scene() {
     m_children.clear();
     m_integrator = nullptr;
     m_environment = nullptr;
+}
+
+MI_VARIANT void Scene<Float, Spectrum>::preprocess() {
+    for (auto& shape: m_shapes)
+        if (shape->has_subsurface()) {
+            Log(Info, "Preprocessing subsurface scattering for shape \"%s\"..",
+                shape->id());
+            shape->subsurface()->preprocess(this);
+        }
 }
 
 // -----------------------------------------------------------------------

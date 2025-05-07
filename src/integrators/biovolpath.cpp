@@ -265,11 +265,11 @@ public:
 
             if (dr::any_or<true>(act_medium_scatter)) {
                 if (dr::any_or<true>(is_spectral)) {
-                    dr::masked(throughput, is_spectral && act_medium_scatter) *=  index_spectrum(mei.transmittance, channel) ;
+                    dr::masked(throughput, is_spectral && act_medium_scatter) *=  mei.transmittance;
                     dr::masked(tissueDepth, is_spectral && act_medium_scatter) += dr::abs(Frame3f::cos_theta(-ray.d) * mei.t);
                 }
                 if (dr::any_or<true>(not_spectral)) {
-                    dr::masked(throughput, not_spectral && act_medium_scatter) *= mei.transmittance;
+                    dr::masked(throughput, not_spectral && act_medium_scatter) *= mei.transmittance ;
                     dr::masked(tissueDepth, not_spectral && act_medium_scatter) += dr::abs(Frame3f::cos_theta(-ray.d) * mei.t);
                 }
 
@@ -295,8 +295,8 @@ public:
             active_surface |= escaped_medium;
             Mask intersect = active_surface && needs_intersection;
             if (dr::any_or<true>(medium != nullptr)) {
-               //dr::masked(result, mei.transmittance == 0.f) = Spectrum(0.f);
-               //dr::masked(throughput, medium != nullptr) *= mei.transmittance;
+               dr::masked(result, mei.transmittance == 0.f) = Spectrum(0.f);
+               dr::masked(throughput, medium != nullptr) *= mei.transmittance;
             }
             if (dr::any_or<true>(intersect))
                 dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);
@@ -311,6 +311,7 @@ public:
                 if (dr::any_or<true>(active_e)) {
                     Float emitter_pdf = 1.0f;
                     if (dr::any_or<true>(active_e && !count_direct)) {
+                        
                         // Get the PDF of sampling this emitter using next event estimation
                         DirectionSample3f ds(scene, si, last_scatter_event);
                         emitter_pdf = scene->pdf_emitter_direction(last_scatter_event, ds, active_e);
@@ -497,7 +498,7 @@ public:
                     dr::masked(si.t, active_medium) = si.t - mei.t;
 
                     if (dr::any_or<true>(is_spectral))
-                        dr::masked(transmittance, is_spectral) *= mei.sigma_n;
+                        dr::masked(transmittance, is_spectral) *= mei.transmittance;
                     if (dr::any_or<true>(not_spectral))
                         dr::masked(transmittance, not_spectral) *= mei.transmittance;
                 }

@@ -45,6 +45,8 @@ public:
 
     /// Destructor
     ~Scene();
+    
+    void preprocess();
 
     // =============================================================
     //! @{ \name Ray tracing

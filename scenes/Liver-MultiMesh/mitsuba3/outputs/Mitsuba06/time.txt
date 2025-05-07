@@ -1,0 +1,5 @@
+Image: scenes/liver-multimesh/mitsuba3\liver-multimesh.exr
+Width: 1920
+Height: 1080
+Samples per pixel: 128
+Time: 3.1667m

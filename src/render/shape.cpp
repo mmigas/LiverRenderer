@@ -2,6 +2,7 @@
 #include <mitsuba/render/mesh.h>
 #include <mitsuba/render/emitter.h>
 #include <mitsuba/render/bsdf.h>
+#include <mitsuba/render/subsurface.h>
 #include <mitsuba/render/sensor.h>
 #include <mitsuba/render/medium.h>
 #include <mitsuba/core/plugin.h>
@@ -27,6 +28,7 @@ MI_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.i
         Emitter *emitter = dynamic_cast<Emitter *>(obj.get());
         Sensor *sensor   = dynamic_cast<Sensor *>(obj.get());
         BSDF *bsdf       = dynamic_cast<BSDF *>(obj.get());
+        Subsurface* subsurface = dynamic_cast<Subsurface*>(obj.get());
         Medium *medium   = dynamic_cast<Medium *>(obj.get());
         Texture *texture = dynamic_cast<Texture *>(obj.get());
 
@@ -42,6 +44,11 @@ MI_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.i
             if (m_bsdf)
                 Throw("Only a single BSDF child object can be specified per shape.");
             m_bsdf = bsdf;
+        } else if (subsurface) {
+            if (m_subsurface)
+                Throw("Only a single Subsurface child object can be specified per shape.");
+            m_subsurface = subsurface;
+            m_subsurface->add_shape(this);
         } else if (medium) {
             if (name == "interior") {
                 if (m_interior_medium)
@@ -64,7 +71,7 @@ MI_VARIANT Shape<Float, Spectrum>::Shape(const Properties &props) : m_id(props.i
     // Create a default diffuse BSDF if needed.
     if (!m_bsdf) {
         Properties props2("diffuse");
-        if (m_emitter)
+        if (m_emitter || has_subsurface())
             props2.set_float("reflectance", 0);
         m_bsdf = PluginManager::instance()->create_object<BSDF>(props2);
     }

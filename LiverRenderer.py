@@ -26,6 +26,8 @@ def parse_settings(settings):
 
     if model.lower() == "ref":
         mitsuba_version = 3
+    elif model.lower() == "sss":
+        mitsuba_version = 3
     else:
         mitsuba_version = 0.6
 
@@ -89,14 +91,22 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
     step = 10  # Step size for wavelengths
 
     module = importlib.import_module("prepare_medium")
-    collagen_layer1_R, collagen_layer1_G, collagen_layer1_B  = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "collagen1")
-    collagen_layer2_R, collagen_layer2_G, collagen_layer2_B = module.calc_abs_coeff(start_wavelength, end_wavelength,step,"collagen2")
-    collagen_layer3_R, collagen_layer3_G, collagen_layer3_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "collagen3")
-    collagen_layer4_R, collagen_layer4_G, collagen_layer4_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "collagen4")
-    elastin_layer1_R,elastin_layer1_G,elastin_layer1_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "elastin1")
-    elastin_layer2_R,elastin_layer2_G,elastin_layer2_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "elastin2")
-    elastin_layer3_R,elastin_layer3_G,elastin_layer3_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "elastin3")
-    elastin_layer4_R,elastin_layer4_G,elastin_layer4_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "elastin4")
+    collagen_layer1_R, collagen_layer1_G, collagen_layer1_B = module.calc_abs_coeff(start_wavelength, end_wavelength,
+                                                                                    step, "collagen1")
+    collagen_layer2_R, collagen_layer2_G, collagen_layer2_B = module.calc_abs_coeff(start_wavelength, end_wavelength,
+                                                                                    step, "collagen2")
+    collagen_layer3_R, collagen_layer3_G, collagen_layer3_B = module.calc_abs_coeff(start_wavelength, end_wavelength,
+                                                                                    step, "collagen3")
+    collagen_layer4_R, collagen_layer4_G, collagen_layer4_B = module.calc_abs_coeff(start_wavelength, end_wavelength,
+                                                                                    step, "collagen4")
+    elastin_layer1_R, elastin_layer1_G, elastin_layer1_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step,
+                                                                                 "elastin1")
+    elastin_layer2_R, elastin_layer2_G, elastin_layer2_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step,
+                                                                                 "elastin2")
+    elastin_layer3_R, elastin_layer3_G, elastin_layer3_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step,
+                                                                                 "elastin3")
+    elastin_layer4_R, elastin_layer4_G, elastin_layer4_B = module.calc_abs_coeff(start_wavelength, end_wavelength, step,
+                                                                                 "elastin4")
 
     blood_spectrum = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "blood")
     bile_spectrum = module.calc_abs_coeff(start_wavelength, end_wavelength, step, "bile")
@@ -125,7 +135,7 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
                     if child.get("name") == "sigma_collagen2_R":
                         child.set("value", collagen_layer2_R)
                     if child.get("name") == "sigma_collagen2_G":
-                        child.set("value", collagen_layer2_G)                    
+                        child.set("value", collagen_layer2_G)
                     if child.get("name") == "sigma_collagen2_B":
                         child.set("value", collagen_layer2_B)
                     if child.get("name") == "sigma_collagen3_R":
@@ -164,8 +174,7 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
                         child.set("value", elastin_layer4_G)
                     if child.get("name") == "sigma_elastin4_B":
                         child.set("value", elastin_layer4_B)
-                    
-                    
+
             if element.get("id") == "parenchymaMedium":
                 for child in element:
                     if child.get("name") == "sigma_blood":
@@ -185,6 +194,75 @@ def edit_scene(scene_path, model, width, height, spp, max_depth, glisson_params,
                         child.set("value", lipid_water_spectrum)
                     if child.get("name") == "sigma_hepatocity":
                         child.set("value", hepaticity_spectrum)
+
+            if element.get("id") == "LiverMedium":
+                for child in element:
+                    if child.get("name") == "sigma_collagen1_R":
+                        child.set("value", collagen_layer1_R)
+                    if child.get("name") == "sigma_collagen1_G":
+                        child.set("value", collagen_layer1_G)
+                    if child.get("name") == "sigma_collagen1_B":
+                        child.set("value", collagen_layer1_B)
+                    if child.get("name") == "sigma_collagen2_R":
+                        child.set("value", collagen_layer2_R)
+                    if child.get("name") == "sigma_collagen2_G":
+                        child.set("value", collagen_layer2_G)
+                    if child.get("name") == "sigma_collagen2_B":
+                        child.set("value", collagen_layer2_B)
+                    if child.get("name") == "sigma_collagen3_R":
+                        child.set("value", collagen_layer3_R)
+                    if child.get("name") == "sigma_collagen3_G":
+                        child.set("value", collagen_layer3_G)
+                    if child.get("name") == "sigma_collagen3_B":
+                        child.set("value", collagen_layer3_B)
+                    if child.get("name") == "sigma_collagen4_R":
+                        child.set("value", collagen_layer4_R)
+                    if child.get("name") == "sigma_collagen4_G":
+                        child.set("value", collagen_layer4_G)
+                    if child.get("name") == "sigma_collagen4_B":
+                        child.set("value", collagen_layer4_B)
+                    if child.get("name") == "sigma_elastin1_R":
+                        child.set("value", elastin_layer1_R)
+                    if child.get("name") == "sigma_elastin1_G":
+                        child.set("value", elastin_layer1_G)
+                    if child.get("name") == "sigma_elastin1_B":
+                        child.set("value", elastin_layer1_B)
+                    if child.get("name") == "sigma_elastin2_R":
+                        child.set("value", elastin_layer2_R)
+                    if child.get("name") == "sigma_elastin2_G":
+                        child.set("value", elastin_layer2_G)
+                    if child.get("name") == "sigma_elastin2_B":
+                        child.set("value", elastin_layer2_B)
+                    if child.get("name") == "sigma_elastin3_R":
+                        child.set("value", elastin_layer3_R)
+                    if child.get("name") == "sigma_elastin3_G":
+                        child.set("value", elastin_layer3_G)
+                    if child.get("name") == "sigma_elastin3_B":
+                        child.set("value", elastin_layer3_B)
+                    if child.get("name") == "sigma_elastin4_R":
+                        child.set("value", elastin_layer4_R)
+                    if child.get("name") == "sigma_elastin4_G":
+                        child.set("value", elastin_layer4_G)
+                    if child.get("name") == "sigma_elastin4_B":
+                        child.set("value", elastin_layer4_B)
+
+                    if child.get("name") == "sigma_blood":
+                        child.set("value", blood_spectrum)
+                    if child.get("name") == "sigma_bile":
+                        child.set("value", bile_spectrum)
+                    if child.get("name") == "sigma_lipid_water":
+                        child.set("value", lipid_water_spectrum)
+                    if child.get("name") == "sigma_hepatocity":
+                        child.set("value", hepaticity_spectrum)
+                    if child.get("name") == "sigma_blood":
+                        child.set("value", blood_spectrum)
+                    if child.get("name") == "sigma_bile":
+                        child.set("value", bile_spectrum)
+                    if child.get("name") == "sigma_lipid_water":
+                        child.set("value", lipid_water_spectrum)
+                    if child.get("name") == "sigma_hepatocity":
+                        child.set("value", hepaticity_spectrum)
+
     elif model.lower() == "ref0.6":
         for element in root.findall("medium"):
             if element.get("id") == "layer2m":
@@ -275,18 +353,37 @@ def run_mitsuba(mitsuba_version, variant, scene_folder, scene_name, temp_scene):
         ) as process:
             # Read output line by line as it is produced
             for line in process.stdout:
+                # If line contains "Renering finished", gather the time and print it
+                if "Rendering finished" in line:
+                    time = line.split(" ")[-1].strip()
+                    time = time.replace(")", "")
+
                 print(line, end='')  # Already includes newline, so no need for extra '\n'
 
         # Optionally, check the process's return code
         if process.returncode != 0:
             print(f"\nProcess exited with code: {process.returncode}")
 
-    return f"{scene_folder}\\{scene_name}.exr"
+    return f"{scene_folder}\\{scene_name}.exr", time
 
 
-def open_image(image):
+def resolve_output(image, time, scene_folder, scene_name, spp, width, height):
     # Open the image with the default program
     subprocess.Popen(["tev", image], creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+    # Write the time to a text file
+    text_file_path = os.path.join(scene_folder, "time.txt")
+    with open(text_file_path, "w") as f:
+        f.write(f"Image: {image}\n")
+        f.write(f"Width: {width}\n")
+        f.write(f"Height: {height}\n")
+        f.write(f"Samples per pixel: {spp}\n")
+        f.write(f"Time: {time}\n")
+    # Convert the image to a PNG file using mitsuba's built-in command
+    import mitsuba as mi
+    bmp = mi.Bitmap(image)
+    bmp = bmp.convert(mi.Bitmap.PixelFormat.RGBA, mi.Struct.Type.UInt8, srgb_gamma=True)
+    mi.util.write_bitmap(f"{scene_folder}\\{scene_name}.png", bmp, write_async=False)
+    pass
 
 
 def main():
@@ -297,12 +394,19 @@ def main():
     glisson_folder = os.path.dirname(os.path.abspath(__file__)) + "\\liver\\glisson"
     sys.path.append(glisson_folder)
     settings = load_settings()
-    model, mitsuba_version, variant, scene, scene_folder, width, height, spp, max_depth, glisson_params, parenchyma_params = parse_settings(settings)
+    model, mitsuba_version, variant, scene, scene_folder, width, height, spp, max_depth, glisson_params, parenchyma_params = parse_settings(
+        settings)
     temp_scene = edit_scene(scene_folder, model, width, height, spp, max_depth, glisson_params, parenchyma_params)
-    image = run_mitsuba(mitsuba_version, variant, scene_folder, scene, temp_scene)
-    open_image(image)
+    image, time = run_mitsuba(mitsuba_version, variant, scene_folder, scene, temp_scene)
+    resolve_output(image, time, scene_folder, scene, spp, width, height)
     pass
 
 
 if __name__ == "__main__":
+    # import mitsuba as mi
+    # bmp = mi.Bitmap("D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.exr")
+    # bmp.channel_count()
+    # bmp = bmp.convert(mi.Bitmap.PixelFormat.RGBA, mi.Struct.Type.UInt8, srgb_gamma=True)
+    # mi.util.write_bitmap(f"D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.png", bmp, write_async=False)
+    # pass
     main()

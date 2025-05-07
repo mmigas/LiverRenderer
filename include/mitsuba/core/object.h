@@ -109,8 +109,8 @@ public:
      */
     virtual std::string to_string() const;
 
-private:
     static Class *m_class;
+private:
 };
 
 // -----------------------------------------------------------------------------

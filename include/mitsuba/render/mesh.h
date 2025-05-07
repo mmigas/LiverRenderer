@@ -1,15 +1,17 @@
 #pragma once
 
+#include "polynomials_structs.h"
+
+#include <drjit/dynamic.h>
+#include <mitsuba/core/distr_1d.h>
+#include <mitsuba/core/properties.h>
+#include <mitsuba/core/struct.h>
+#include <mitsuba/core/transform.h>
 #include <mitsuba/render/interaction.h>
 #include <mitsuba/render/shape.h>
 #include <mitsuba/render/srgb.h>
-#include <mitsuba/core/struct.h>
-#include <mitsuba/core/transform.h>
-#include <mitsuba/core/distr_1d.h>
-#include <mitsuba/core/properties.h>
-#include <unordered_map>
 #include <mutex>
-#include <drjit/dynamic.h>
+#include <unordered_map>
 
 NAMESPACE_BEGIN(mitsuba)
 
@@ -395,6 +397,25 @@ public:
     size_t vertex_data_bytes() const;
     size_t face_data_bytes() const;
 
+    //VAE
+    inline const PolyStorage *getPolyCoeffs() const { return m_polyCoeffs; };
+    /// Return the shape descriptor polynomials
+    inline PolyStorage *getPolyCoeffs() { return m_polyCoeffs; };
+    /// Does the mesh have coeffs?
+    inline bool hasPolyCoeffs() const { return m_polyCoeffs != NULL; };   
+
+    void createPolyCoeffsArray() {
+        m_polyCoeffs = new PolyStorage[m_vertex_count];
+    }
+
+    inline void setHasRgb(bool hasRgb) {
+        m_hasRgb = hasRgb;
+    }
+
+    inline bool hasRgb() const {
+        return m_hasRgb;
+    }
+    
 protected:
     Mesh(const Properties &);
     inline Mesh() {}
@@ -591,6 +612,10 @@ protected:
 
     /// Pointer to the scene that owns this mesh
     Scene<Float, Spectrum>* m_scene = nullptr;
+
+    //VAE
+    mutable PolyStorage *m_polyCoeffs = NULL;
+    mutable bool m_hasRgb = false;
 };
 
 MI_EXTERN_CLASS(Mesh)
@@ -610,6 +635,8 @@ DRJIT_CALL_TEMPLATE_INHERITED_BEGIN(mitsuba::Mesh, mitsuba::Shape)
     DRJIT_CALL_METHOD(face_normal)
     DRJIT_CALL_METHOD(opposite_dedge)
     DRJIT_CALL_METHOD(ray_intersect_triangle)
+    DRJIT_CALL_METHOD(createPolyCoeffsArray)
+    DRJIT_CALL_METHOD(setHasRgb)
 
     DRJIT_CALL_GETTER(vertex_count)
     DRJIT_CALL_GETTER(face_count)
@@ -617,6 +644,9 @@ DRJIT_CALL_TEMPLATE_INHERITED_BEGIN(mitsuba::Mesh, mitsuba::Shape)
     DRJIT_CALL_GETTER(has_vertex_texcoords)
     DRJIT_CALL_GETTER(has_mesh_attributes)
     DRJIT_CALL_GETTER(has_face_normals)
+    DRJIT_CALL_GETTER(getPolyCoeffs)
+    DRJIT_CALL_GETTER(hasPolyCoeffs)
+    DRJIT_CALL_GETTER(hasRgb)
 DRJIT_CALL_INHERITED_END(mitsuba::Mesh)
 
 //! @}

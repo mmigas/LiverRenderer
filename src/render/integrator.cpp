@@ -14,7 +14,7 @@
 #include <mitsuba/render/sensor.h>
 #include <mitsuba/render/spiral.h>
 #include <nanothread/nanothread.h>
-
+#include <mitsuba/core/bitmap.h>
 NAMESPACE_BEGIN(mitsuba)
 
 // -----------------------------------------------------------------------------
@@ -159,7 +159,6 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
     if constexpr (!dr::is_jit_v<Float>) {
         // Render on the CPU using a spiral pattern
         uint32_t n_threads = (uint32_t) Thread::thread_count();
-
         Log(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
             film_size.x(), film_size.y(), spp, spp == 1 ? "" : "s",
             n_passes > 1 ? tfm::format(" %u passes,", n_passes) : "", n_threads,
@@ -359,9 +358,11 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
         }
     }
 
-    if (!m_stop && (evaluate || !dr::is_jit_v<Float>))
+    if (!m_stop && (evaluate || !dr::is_jit_v<Float>)) {
         Log(Info, "Rendering finished. (took %s)",
             util::time_string((float) m_render_timer.value(), true));
+        
+    }
 
     return result;
 }
