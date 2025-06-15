@@ -376,7 +376,7 @@ template <typename Float, typename Spectrum> void runRealtimeRenderer(Object *sc
     // --- State for Accumulation (EMA)
     TensorXf current_average_gpu;
     bool average_initialized = false;
-    const float EMA_ALPHA    = 0.001f;
+    const float EMA_ALPHA    = 0.01f;
 
     // --- State for OptiX Denoiser
     // Use the Mitsuba wrapper class, templated on Float/Spectrum
@@ -483,8 +483,8 @@ template <typename Float, typename Spectrum> void runRealtimeRenderer(Object *sc
 
             // Construct the JIT Transform4f (using the local alias) from the
             // scalar matrix
-            // sensor->m_to_world = Transform4f(new_to_world_scalar.matrix);
-            // sensor->parameters_changed({ "to_world" }); // Notify Mitsuba
+           sensor->m_to_world = Transform4f(new_to_world_scalar.matrix);
+           sensor->parameters_changed({ "to_world" }); // Notify Mitsuba
 
             totalInputTimeMs += stageTimer.value(); // Convert to ms
 
@@ -507,7 +507,7 @@ template <typename Float, typename Spectrum> void runRealtimeRenderer(Object *sc
                     current_mode = InteractiveMode::EMA;
                 }
             } else if (current_mode == InteractiveMode::EMA) {
-                if (!average_initialized) { /* ... init average ... */
+                if (!average_initialized || camera.updated) { /* ... init average ... */
                     average_initialized = true;
                     current_average_gpu = current_frame_gpu;
                 } else { /* ... EMA calculation ... */

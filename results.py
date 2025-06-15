@@ -30,7 +30,7 @@ def load_exr_image(file_path):
     for ch in channels:
         if ch not in header['channels']:
             raise ValueError(f"Channel '{ch}' not found in EXR file.")
-        # Get raw bytes for the channel. 
+        # Get raw bytes for the channel.
         # For safety, force a copy by wrapping the result in bytes().
         raw_bytes = bytes(exr_file.channel(ch, pt))
         # The raw data is in HALF format: 16 bits per value.
@@ -57,97 +57,95 @@ def load_image(file_path):
         return load_exr_image(file_path)
     return imageio.imread(file_path).astype(np.float32)
 
+def get_black_mask(mask_path):
+    """Returns a boolean mask where True means the pixel is black in the mask image."""
+    mask_img = load_image(mask_path)
+    # Consider a pixel black if all channels are zero (or very close to zero)
+    black_mask = np.all(mask_img < 1e-5, axis=-1)
+    return black_mask
 
-def calculate_mse(reference, rendered):
-    err = np.sum((rendered.astype(np.float32) - reference.astype(np.float32)) ** 2)
-
-    # Normalize by the total number of pixels
-    err /= float(rendered.shape[0] * reference.shape[1])
-    rmse = np.sqrt(err)
+def calculate_mse(reference, rendered, mask):
+    # Only compare masked pixels
+    diff = (rendered.astype(np.float32) - reference.astype(np.float32)) ** 2
+    masked_diff = diff[mask]
+    mse = np.mean(masked_diff)
+    rmse = np.sqrt(mse)
     return rmse
 
 
-def calculate_ssim(reference, rendered):
-    """
-    Computes the Structural Similarity Index (SSIM) between two images.
-    SSIM is computed per channel and averaged.
-    Returns the average SSIM and the SSIM map.
-    """
+def calculate_ssim(reference, rendered, mask):
     ssim_values = []
     ssim_maps = []
-    for i in range(reference.shape[-1]):  # Loop through R, G, B channels
-        ssim_channel, ssim_map = ssim(reference[..., i], rendered[..., i], data_range=reference.max() - reference.min(),
-                                      full=True)
+    for i in range(reference.shape[-1]):
+        # For SSIM, extract only the masked pixels as 1D arrays
+        ssim_channel, ssim_map = ssim(
+            reference[..., i][mask], rendered[..., i][mask],
+            data_range=1.0,
+            full=True
+        )
+        # Create a full-size map with NaN outside the mask
+        full_map = np.full(mask.shape, np.nan)
+        full_map[mask] = ssim_map
         ssim_values.append(ssim_channel)
-        ssim_maps.append(ssim_map)
-
-    avg_ssim = np.mean(ssim_values)  # Average SSIM across channels
-    ssim_map = np.mean(ssim_maps, axis=0)  # Average SSIM map across channels
-
+        ssim_maps.append(full_map)
+    avg_ssim = np.mean(ssim_values)
+    ssim_map = np.nanmean(np.stack(ssim_maps, axis=-1), axis=-1)
     return avg_ssim, ssim_map
 
-
-def visualize_ssim(ssim_map, ssim_value, output_path='results/ssim_map.png'):
-    """
-    Visualizes the SSIM map using matplotlib and includes the SSIM value in the title.
-    """
-    plt.imshow(ssim_map, cmap='viridis')
-    plt.colorbar()
+def visualize_ssim(ssim_map, ssim_value, mask, output_path='results/ssim_map.png'):
+    plt.imshow(np.where(mask, ssim_map, np.nan), cmap='viridis', vmin=0, vmax=1)
+    plt.colorbar(label="Per-Pixel SSIM")  # Add a label for clarity
     plt.axis('off')
     name = output_path.split('/')[-1].split('.')[0]
     name = name.replace('SSIM', '')
-    plt.title(f'{name}\'s SSIM Map\n (SSIM: {ssim_value:.4f})')  # Add SSIM value to the title
-    plt.savefig(output_path, format='png')  # Save the plot as a PNG file
+    plt.title(f'{name}\'s SSIM Map\n (SSIM: {ssim_value:.4f})')
+    plt.savefig(output_path, format='png')
+    plt.show()
+
+def visualize_rmse(reference, rendered, rmse_value, mask, output_path='results/rmse_map.png'):
+    per_pixel_mse = np.mean((rendered.astype(np.float32) - reference.astype(np.float32)) ** 2, axis=-1)
+    per_pixel_rmse = np.sqrt(per_pixel_mse)
+    per_pixel_rmse_masked = np.where(mask, per_pixel_rmse, np.nan)
+
+    plt.imshow(per_pixel_rmse_masked, cmap='viridis')
+
+    plt.colorbar(label="Per-Pixel RMSE")  # Add a label for clarity
+    plt.axis('off')
+    name = output_path.split('/')[-1].split('.')[0].replace('RSME', '')
+
+    # Use the corrected overall RMSE value in the title
+    plt.title(f'{name}\'s RMSE Map\n (RMSE: {rmse_value:.4f})')
+
+    plt.savefig(output_path, format='png', bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
 
-def visualize_rmse(reference, rendered, rmse_value, output_path='results/rmse_map.png'):
-    """
-    Visualizes the pixel-wise squared difference (RMSE map) between two images and includes the RMSE value in the title.
-    """
-    # Compute the squared difference
-    mse_map = (rendered.astype(np.float32) - reference.astype(np.float32)) ** 2
-
-    # Normalize the MSE map for visualization
-    mse_map_normalized = mse_map / mse_map.max()
-
-    # Display the RMSE map
-    plt.imshow(mse_map_normalized.mean(axis=-1), cmap='viridis')  # Average across channels
-    plt.colorbar()
-    plt.axis('off')  # Hide axes
-    name = output_path.split('/')[-1].split('.')[0]
-    name = name.replace('RSME', '')
-    plt.title(f'{name}\'s RMSE Map\n (RMSE: {rmse_value:.4f})')  # Add RMSE value to the title
-    plt.savefig(output_path, format='png')  # Save the plot as a PNG file
-    plt.show()
-
-
-def compare_images(reference_path, rendered_path):
-    """
-    Loads two images and calculates MSE & SSIM.
-    """
+def compare_images(reference_path, rendered_path, mask_path):
     reference = load_image(reference_path)
     rendered = load_image(rendered_path)
+    mask = get_black_mask(mask_path)
+    if reference.shape != rendered.shape or reference.shape[:2] != mask.shape:
+        raise ValueError("Images and mask must have the same dimensions.")
+    mse_value = calculate_mse(reference, rendered, mask)
+    max_val = reference.max()
+    if max_val > 0:
+        reference = reference / max_val
+        rendered = rendered / max_val  # Normalize both by the same value
+    ssim_value, ssim_map = calculate_ssim(reference, rendered, mask)
+    return mse_value, ssim_value, ssim_map, mask, reference, rendered
 
-    if reference.shape != rendered.shape:
-        raise ValueError("Images must have the same dimensions and channels.")
-
-    mse_value = calculate_mse(reference, rendered)
-    ssim_value, ssim_map = calculate_ssim(reference, rendered)
-
-    return mse_value, ssim_value, ssim_map
 
 
 def main():
-    image_path1 = 'D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.png'
-    image_path2 = 'C:\\Users\\Miguel\\Downloads\\Surgery2.0\\Surgery2.0\\denoised.png'
-    reference = load_image(image_path1)
-    rendered = load_image(image_path2)
-    rmse, ssim, ssim_map = compare_images(image_path1, image_path2)
+    image_path1 = 'D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\outputs\\Mitsuba3\\CPU\\liver-singlemesh.png'
+    image_path2 = 'D:\\dev\\learned-subsurface-scattering\\pysrc\\outputs\\vae3d\\render\\scenes\\liver\\0487_FinalSharedLs7Mixed3_AbsSharedSimComplexMixed3\\LearnedLiverModel.png'
+    mask_path = "D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\LiveMultiMesh-Mask.png"
+
+    rmse, ssim, ssim_map, mask, reference, rendered = compare_images(image_path1, image_path2, mask_path)
     print(f"MSE: {rmse:.4f}")
     print(f"SSIM: {ssim:.4f}")
-    visualize_ssim(ssim_map, ssim, 'results/OptixWhiteBackgroundSSIM.png')
-    visualize_rmse(reference, rendered, rmse, 'results/OptixWhiteBackgroundRSME.png')
+    visualize_ssim(ssim_map, ssim, mask, 'resultsMasked/LearnedSSIM.png')
+    visualize_rmse(reference, rendered, rmse, mask, 'resultsMasked/LearnedRSME.png')
 
 
 if __name__ == "__main__":

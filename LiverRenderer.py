@@ -403,10 +403,11 @@ def main():
 
 
 if __name__ == "__main__":
-    # import mitsuba as mi
-    # bmp = mi.Bitmap("D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.exr")
-    # bmp.channel_count()
-    # bmp = bmp.convert(mi.Bitmap.PixelFormat.RGBA, mi.Struct.Type.UInt8, srgb_gamma=True)
-    # mi.util.write_bitmap(f"D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene_white_background.png", bmp, write_async=False)
-    # pass
-    main()
+    import mitsuba as mi
+    bmp = mi.Bitmap("D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene.exr")
+    channelCount = bmp.channel_count()
+    bmp = bmp.convert(mi.Bitmap.PixelFormat.RGB, mi.Struct.Type.UInt8, srgb_gamma=True)
+    print(bmp)
+    mi.util.write_bitmap(f"D:\\dev\\LiverRenderer\\scenes\\Liver-SingleMesh\\mitsuba3\\scene.png", bmp)
+    pass
+    #main()

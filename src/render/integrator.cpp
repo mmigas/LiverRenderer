@@ -159,10 +159,10 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
     if constexpr (!dr::is_jit_v<Float>) {
         // Render on the CPU using a spiral pattern
         uint32_t n_threads = (uint32_t) Thread::thread_count();
-        Log(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
-            film_size.x(), film_size.y(), spp, spp == 1 ? "" : "s",
-            n_passes > 1 ? tfm::format(" %u passes,", n_passes) : "", n_threads,
-            n_threads == 1 ? "" : "s");
+        //Log(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
+        //    film_size.x(), film_size.y(), spp, spp == 1 ? "" : "s",
+        //    n_passes > 1 ? tfm::format(" %u passes,", n_passes) : "", n_threads,
+        //    n_threads == 1 ? "" : "s");
 
         if (m_timeout > 0.f)
             Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
@@ -265,9 +265,9 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
 
         dr::sync_thread(); // Separate from scene initialization (for timings)
 
-        Log(Info, "Starting render job (%ux%u, %u sample%s%s)",
-            film_size.x(), film_size.y(), spp, spp == 1 ? "" : "s",
-            n_passes > 1 ? tfm::format(", %u passes", n_passes) : "");
+        //Log(Info, "Starting render job (%ux%u, %u sample%s%s)",
+        //    film_size.x(), film_size.y(), spp, spp == 1 ? "" : "s",
+        //    n_passes > 1 ? tfm::format(", %u passes", n_passes) : "");
 
         if (n_passes > 1 && !evaluate) {
             Log(Warn, "render(): forcing 'evaluate=true' since multi-pass "
@@ -330,8 +330,8 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
 
         if (n_passes == 1 && jit_flag(JitFlag::VCallRecord) &&
             jit_flag(JitFlag::LoopRecord)) {
-            Log(Info, "Computation graph recorded. (took %s)",
-                util::time_string((float) timer.reset(), true));
+            //Log(Info, "Computation graph recorded. (took %s)",
+            //    util::time_string((float) timer.reset(), true));
         }
 
         if (develop) {
@@ -346,8 +346,8 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
 
             if (n_passes == 1 && jit_flag(JitFlag::VCallRecord) &&
                 jit_flag(JitFlag::LoopRecord)) {
-                Log(Info, "Code generation finished. (took %s)",
-                    util::time_string((float) timer.value(), true));
+                //Log(Info, "Code generation finished. (took %s)",
+                //    util::time_string((float) timer.value(), true));
 
                 /* Separate computation graph recording from the actual
                    rendering time in single-pass mode */
@@ -359,8 +359,8 @@ SamplingIntegrator<Float, Spectrum>::render(Scene *scene,
     }
 
     if (!m_stop && (evaluate || !dr::is_jit_v<Float>)) {
-        Log(Info, "Rendering finished. (took %s)",
-            util::time_string((float) m_render_timer.value(), true));
+        //Log(Info, "Rendering finished. (took %s)",
+        //    util::time_string((float) m_render_timer.value(), true));
         
     }
 
@@ -601,10 +601,10 @@ AdjointIntegrator<Float, Spectrum>::render(Scene *scene,
     if constexpr (!dr::is_jit_v<Float>) {
         size_t n_threads = Thread::thread_count();
 
-        Log(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
-            crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
-            n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "", n_threads,
-            n_threads == 1 ? "" : "s");
+        //og(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
+        //   crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
+        //   n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "", n_threads,
+        //   n_threads == 1 ? "" : "s");
 
         if (m_timeout > 0.f)
             Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
@@ -696,9 +696,9 @@ AdjointIntegrator<Float, Spectrum>::render(Scene *scene,
                 samples_per_pass, n_passes);
         }
 
-        Log(Info, "Starting render job (%ux%u, %u sample%s%s)",
-            crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
-            n_passes > 1 ? tfm::format(", %u passes", n_passes) : "");
+        //Log(Info, "Starting render job (%ux%u, %u sample%s%s)",
+        //    crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
+        //    n_passes > 1 ? tfm::format(", %u passes", n_passes) : "");
 
         // Inform the sampler about the passes (needed in vectorized modes)
         sampler->set_samples_per_wavefront(spp_per_pass);

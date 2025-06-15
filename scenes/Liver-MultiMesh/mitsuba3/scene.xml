@@ -2,8 +2,8 @@
 <scene version="3.6.0">
     <default name="integrator" value="biovolpath"/>
     <default name="spp" value="1"/>
-    <default name="res_width" value="854"/>
-    <default name="res_height" value="480"/>
+    <default name="res_width" value="1920" />
+    <default name="res_height" value="1080" />
     <default name="max_depth" value="12"/>
     <integrator type="$integrator">
         <integer name="max_depth" value="$max_depth"/>
@@ -22,8 +22,8 @@
             <integer name="width" value="$res_width"/>
             <integer name="height" value="$res_height"/>
             <string name="file_format" value="openexr"/>
-            <string name="pixel_format" value="rgba"/>
-            <rfilter type="tent"/>
+            <string name="pixel_format" value="rgb"/>
+            <rfilter type="box"/>
         </film>
     </sensor>
     <bsdf type="dielectric" id="ParenchymaBSDF">
@@ -90,13 +90,17 @@
     <shape type="obj" id="liver1">
         <string name="filename" value="liver1.obj"/>
         <transform name="to_world">
-            <scale value="1.05"/>
-            <translate x="-5.05" y="5.05" z="-5.05"/>
+            <scale value="1"/>
+            <translate x="-5" y="5" z="-5"/>
         </transform>
-        <ref id="GlissonCapsuleBSDF"/>
-        <ref name="interior" id="glissonCapsuleMedium"/>
+<!--        <ref id="GlissonCapsuleBSDF"/>
+        <ref name="interior" id="glissonCapsuleMedium"/>-->
+        <bsdf type="diffuse" id="black_material">
+            <!-- Reflectance is set to (0, 0, 0), meaning it absorbs 100% of incoming light. -->
+            <rgb name="reflectance" value="0.0, 0.0, 0.0"/>
+        </bsdf>
     </shape>
-    <shape type="obj" id="liver2">
+<!--    <shape type="obj" id="liver2">
         <string name="filename" value="liver2.obj"/>
         <transform name="to_world">
             <scale value="1"/>
@@ -104,8 +108,8 @@
         </transform>
         <ref id="ParenchymaBSDF"/>
         <ref name="interior" id="parenchymaMedium"/>
-    </shape>
-    <emitter type="envmap">
+    </shape>-->
+<!--    <emitter type="envmap">
         <string name="filename" value="cavidade_latitude.exr"/>
         <float name="scale" value="2.5"/>
         <transform name="to_world">
@@ -113,5 +117,9 @@
             <scale value="1.0"/>
             <rotate x="0.57735" y="0.57735" z="0.57735" angle="180"/>
         </transform>
+    </emitter>-->
+    <emitter type="constant">
+        <!-- Radiance is the color and intensity of the light. (1, 1, 1) is pure white. -->
+        <rgb name="radiance" value="1.0, 1.0, 1.0"/>
     </emitter>
 </scene>

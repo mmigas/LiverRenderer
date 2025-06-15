@@ -1,6 +1,6 @@
 <scene version="3.6.0">
     <default name="integrator" value="biovolpath06" />
-    <default name="spp" value="128" />
+    <default name="spp" value="256" />
     <default name="res_width" value="1920" />
     <default name="res_height" value="1080" />
     <default name="max_depth" value="12" />
@@ -46,10 +46,10 @@
     </bsdf>
 
     <medium id="parenchymaMedium" type="parenchyma">
-        <rgb name="sigma_blood" value="0.004611074674964207, 0.20900034649954347, 0.24625187839886722" />
+        <rgb name="sigma_blood" value="0.009222149349928413, 0.41800069299908693, 0.49250375679773445" />
         <rgb name="sigma_bile" value="0.002160333333333333, 0.0030312499999999997, 0.025356499999999997" />
         <float name="sigma_hepatocity" value="269.26180490217416" />
-        <rgb name="sigma_lipid_water" value="0.004632281950333333, 0.00048109802439999993, 0.00106273247395" />
+        <rgb name="sigma_lipid_water" value="0.005058164470333333, 0.002550719088399999, 0.019649636585949995" />
         <float name="scale" value="1" />
     </medium>
 
@@ -62,13 +62,8 @@
         <ref id="ParenchymaBSDF" />
         <ref name="interior" id="parenchymaMedium" />
     </shape>
-    <emitter type="envmap">
-        <string name="filename" value="cavidade_latitude.exr" />
-        <float name="scale" value="2.5" />
-        <transform name="to_world">
-            <translate x="-3" y="3" z="4" />
-            <scale value="1.0" />
-            <rotate x="0.57735" y="0.57735" z="0.57735" angle="180" />
-        </transform>
+    
+        <emitter id="Environment-constant" type="constant">
+        <rgb name="radiance" value="1.000000 1.000000 1.000000" />
     </emitter>
 </scene>

@@ -85,7 +85,16 @@
         <ref name="interior" id="glissonCapsuleMedium"/>
     </shape>
     
-    <emitter id="Environment-constant" type="constant">
+<!--    <emitter id="Environment-constant" type="constant">
         <rgb name="radiance" value="1.000000 1.000000 1.000000"/>
+    </emitter>-->
+    <emitter type="envmap">
+        <string name="filename" value="cavidade_latitude.exr"/>
+        <float name="scale" value="2.5"/>
+        <transform name="to_world">
+            <translate x="-3" y="3" z="4"/>
+            <scale value="1.0"/>
+            <rotate x="0.57735" y="0.57735" z="0.57735" angle="180"/>
+        </transform>
     </emitter>
 </scene>

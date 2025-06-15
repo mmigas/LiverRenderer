@@ -1,7 +1,7 @@
 Model: Ref
 Variant: scalar_rgb # only for Mitsuba3
 
-Scene: Liver-SingleMesh
+Scene: Parenchyma
 
 Resolution:
   Width: 1920

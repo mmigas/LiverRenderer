@@ -1,8 +1,8 @@
 <scene version="3.6.0">
-    <default name="integrator" value="biovolpath06"/>
-    <default name="spp" value="1"/>
-    <default name="res_width" value="854"/>
-    <default name="res_height" value="480"/>
+    <default name="integrator" value="biovolpath"/>
+    <default name="spp" value="256"/>
+    <default name="res_width" value="854" />
+    <default name="res_height" value="480" />
     <default name="max_depth" value="12"/>
     <integrator type="$integrator">
         <integer name="max_depth" value="$max_depth"/>
@@ -20,8 +20,8 @@
             <integer name="width" value="$res_width"/>
             <integer name="height" value="$res_height"/>
             <string name="file_format" value="openexr"/>
-            <string name="pixel_format" value="rgb"/>
-            <rfilter type="tent"/>
+            <string name="pixel_format" value="rgba"/>
+            <rfilter type="box"/>
         </film>
     </sensor>
     <bsdf type="dielectric" id="ParenchymaBSDF">

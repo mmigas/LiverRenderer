@@ -7,7 +7,7 @@
     <default name="max_depth" value="65"/>
     <integrator type="$integrator">
         <integer name="max_depth" value="$max_depth"/>
-        <boolean name="hide_emitters" value="false"/>
+        <boolean name="hide_emitters" value="true"/>
     </integrator>
     <sensor type="perspective">
         <float name="fov" value="45"/>
@@ -65,13 +65,16 @@
         <ref id="ParenchymaBSDF"/>
         <ref name="interior" id="parenchymaMedium"/>
     </shape>
-    <emitter type="envmap">
-        <string name="filename" value="cavidade_latitude.exr"/>
-        <float name="scale" value="2.5"/>
-        <transform name="to_world">
-            <translate x="-3" y="3" z="4"/>
-            <scale value="1.0"/>
-            <rotate x="0.57735" y="0.57735" z="0.57735" angle="180"/>
-        </transform>
+    <!--    <emitter type="envmap">
+            <string name="filename" value="cavidade_latitude.exr"/>
+            <float name="scale" value="2.5"/>
+            <transform name="to_world">
+                <translate x="-3" y="3" z="4"/>
+                <scale value="1.0"/>
+                <rotate x="0.57735" y="0.57735" z="0.57735" angle="180"/>
+            </transform>
+        </emitter>-->
+        <emitter id="Environment-constant" type="constant">
+        <rgb name="radiance" value="1.000000 1.000000 1.000000"/>
     </emitter>
 </scene>
