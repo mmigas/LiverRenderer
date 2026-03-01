@@ -31,7 +31,6 @@ def test01_sample_position(variants_vec_backends_once, filter_type, wrap_mode):
 @fresolver_append_path
 def test02_eval_grad(variant_scalar_rgb, np_rng):
     # Tests evaluating the texture gradient under different rotation
-    import numpy as np
     delta = 1e-4
     si = mi.SurfaceInteraction3f()
     for u01 in np_rng.random((10, 1)):
@@ -56,8 +55,6 @@ def test02_eval_grad(variant_scalar_rgb, np_rng):
 @fresolver_append_path
 @pytest.mark.parametrize('wrap_mode', ['repeat', 'clamp', 'mirror'])
 def test03_wrap(variants_vec_backends_once_rgb, wrap_mode):
-    import numpy as np
-
     bitmap = mi.load_dict({
         "type"      : "bitmap",
         "filename"  : "resources/data/common/textures/noise_8x8.png",
@@ -133,8 +130,6 @@ def test03_wrap(variants_vec_backends_once_rgb, wrap_mode):
 
 @fresolver_append_path
 def test04_eval_rgb(variants_vec_backends_once_rgb):
-    import numpy as np
-
     # RGB image
     bitmap = mi.load_dict({
         'type' : 'bitmap',
@@ -161,10 +156,11 @@ def test04_eval_rgb(variants_vec_backends_once_rgb):
     # Grayscale image
     bitmap = mi.load_dict({
         'type' : 'bitmap',
-        'filename' : 'resources/data/common/textures/noise_02.png'
+        'filename' : 'resources/data/common/textures/noise_02.png',
+        'format' : 'variant'
     })
 
-    x_res, y_res =  bitmap.resolution()
+    x_res, y_res = bitmap.resolution()
     # Coordinates of gray pixel: (0, 15)
     x = (1 / x_res) * 0 + (1 / (2 * x_res))
     y = (1 / y_res) * 15 + (1 / (2 * y_res))
@@ -177,7 +173,7 @@ def test04_eval_rgb(variants_vec_backends_once_rgb):
         color = bitmap.eval_3(si)
     spec = bitmap.eval(si)
 
-    expected = 0.5394
+    expected = 0.5395
     assert dr.allclose(expected, spec, atol=1e-04)
     assert dr.allclose(expected, mono, atol=1e-04)
 
@@ -249,3 +245,37 @@ def test06_tensor_load(variants_all_rgb):
     })
 
     assert dr.allclose(bitmap.mean(), 3.0);
+
+
+@fresolver_append_path
+@pytest.mark.parametrize('filter_type', ['nearest', 'bilinear'])
+@pytest.mark.parametrize('wrap_mode', ['repeat', 'clamp', 'mirror'])
+def test07_sample_position_consistency(variants_vec_backends_once, filter_type, wrap_mode):
+    bitmap = mi.load_dict({
+        "type" : "bitmap",
+        "filename" : "resources/data/common/textures/carrot.png",
+        "filter_type" : filter_type,
+        "wrap_mode" : wrap_mode
+    })
+
+    N = 10000
+    x = dr.linspace(mi.Float, 0, 1, N)
+    x, y = dr.meshgrid(x, x)
+    out = bitmap.sample_position(mi.Point2f(x, y))
+    pdf = bitmap.pdf_position(mi.Point2f(out[0]))
+
+    assert dr.allclose(out[1], pdf)
+
+
+@fresolver_append_path
+def test08_to_uv(variant_scalar_rgb):
+    transform = mi.ScalarTransform3f().translate([2,4]).scale([3, 9]).rotate(45)
+
+    bitmap = mi.load_dict({
+        "type" : "bitmap",
+        "filename" : "resources/data/common/textures/noise_8x8.png",
+        "to_uv" : transform
+    })
+
+    params = mi.traverse(bitmap)
+    assert params["to_uv"] == transform

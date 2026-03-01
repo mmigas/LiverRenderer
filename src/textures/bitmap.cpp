@@ -65,7 +65,13 @@ Bitmap texture (:monosp:`bitmap`)
    - Specifies the underlying texture storage format. The following options are
      currently available:
 
-     - ``variant``(default): Use the corresponding native floating point representation
+     - ``auto`` (default): If loading a texture from a bitmap, use half
+         precision for bitmap data with 16 or lower bit depth, otherwise use
+         the native floating point representation of the Mitsuba variant. For
+         variants using a spectral color representation this option is the same
+         as `variant`.
+
+     - ``variant``: Use the corresponding native floating point representation
          of the Mitsuba variant
 
      - ``fp16``: Forcibly store the texture in half precision
@@ -131,8 +137,42 @@ class BitmapTexture final : public Texture<Float, Spectrum> {
 public:
     MI_IMPORT_TYPES(Texture)
 
+    /* Recap of numerical precision of lookup operations
+     *
+     * backend | variant | format   | accel  | behavior
+     * ==================================================================
+     * CUDA    | float   | fp16     | true   | fp16 storage, fp32* interp, accel
+     * CUDA    | float   | variant  | true   | fp32 storage, fp32* interp, accel
+     *
+     * CUDA    | float   | fp16     | false  | fp16 storage, fp32 interp, no accel
+     * CUDA    | float   | variant  | false  | fp32 storage, fp32 interp, no accel
+     *
+     * CUDA    | double  | fp16     | true   | fp16 storage, fp32* interp, accel
+     * CUDA    | double  | variant  | true   | fp64 storage, fp64  interp, no accel
+     *
+     * CUDA    | double  | fp16     | false  | fp16 storage, fp64 interp, no accel
+     * CUDA    | double  | variant  | false  | fp64 storage, fp64 interp, no accel
+     *
+     * \* Hardware-accelerated lookups are not exactly fp32 see:
+     *    https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#linear-filtering
+     *
+     * ------------------------------------------------------------------------
+     *
+     * CPU     | float   | fp16     | true   | fp16 storage, fp32 interp, no accel
+     * CPU     | float   | variant  | true   | fp32 storage, fp32 interp, no accel
+     *
+     * CPU     | float   | fp16     | false  | fp16 storage, fp32 interp, no accel
+     * CPU     | float   | variant  | false  | fp32 storage, fp32 interp, no accel
+     *
+     * CPU     | double  | fp16     | true   | fp16 storage, fp64 interp, no accel
+     * CPU     | double  | variant  | true   | fp64 storage, fp64 interp, no accel
+     *
+     * CPU     | double  | fp16     | false  | fp16 storage, fp64 interp, no accel
+     * CPU     | double  | variant  | false  | fp64 storage, fp64 interp, no accel
+     */
+
     BitmapTexture(const Properties &props) : Texture(props) {
-        m_transform = props.get<ScalarTransform3f>("to_uv", ScalarTransform3f());
+        m_transform = props.get<ScalarAffineTransform3f>("to_uv", ScalarAffineTransform3f());
 
         /* Should Mitsuba disable transformations to the stored color data?
            (e.g. sRGB to linear, spectral upsampling, etc.) */
@@ -141,7 +181,7 @@ public:
 
         // Filter mode
         {
-            std::string filter_mode_str = props.string("filter_type", "bilinear");
+            std::string_view filter_mode_str = props.get<std::string_view>("filter_type", "bilinear");
             if (filter_mode_str == "nearest")
                 m_filter_mode = dr::FilterMode::Nearest;
             else if (filter_mode_str == "bilinear")
@@ -153,7 +193,7 @@ public:
 
         // Wrap mode
         {
-            std::string wrap_mode_str = props.string("wrap_mode", "repeat");
+            std::string_view wrap_mode_str = props.get<std::string_view>("wrap_mode", "repeat");
             if (wrap_mode_str == "repeat")
                 m_wrap_mode = dr::WrapMode::Repeat;
             else if (wrap_mode_str == "mirror")
@@ -167,13 +207,15 @@ public:
 
         // Format
         {
-            std::string format_str = props.string("format", "variant");
-            if (format_str == "variant")
+            std::string_view format_str = props.get<std::string_view>("format", "auto");
+            if (format_str == "auto")
+                m_format = Format::Auto;
+            else if (format_str == "variant")
                 m_format = Format::Variant;
             else if (format_str == "fp16")
                 m_format = Format::Float16;
             else
-                Throw("Invalid format \"%s\", must be one of: "
+                Throw("Invalid format \"%s\", must be one of: \"auto\", "
                       "\"variant\", or \"fp16\"!", format_str);
         }
 
@@ -185,25 +227,25 @@ public:
                     Throw("Cannot specify both \"bitmap\" and \"filename\".");
                 Log(Debug, "Loading bitmap texture from memory...");
                 // Note: ref-counted, so we don't have to worry about lifetime
-                ref<Object> other = props.object("bitmap");
+                ref<Object> other = props.get<ref<Object>>("bitmap");
                 Bitmap *b = dynamic_cast<Bitmap *>(other.get());
                 if (!b)
                     Throw("Property \"bitmap\" must be a Bitmap instance.");
                 m_bitmap = b;
             } else if (props.has_property("filename")) {
                 // Creates a Bitmap texture by loading an image from the filesystem
-                FileResolver* fs = Thread::thread()->file_resolver();
-                fs::path file_path = fs->resolve(props.string("filename"));
+                FileResolver* fs = file_resolver();
+                fs::path file_path = fs->resolve(props.get<std::string_view>("filename"));
                 m_name = file_path.filename().string();
                 Log(Debug, "Loading bitmap texture from \"%s\" ..", m_name);
                 m_bitmap = new Bitmap(file_path);
             } else if (props.has_property("data")) {
-                m_tensor = props.tensor<TensorXf>("data");
-                if (m_tensor->ndim() != 3)
+                m_tensor = std::move(const_cast<TensorXf&>(props.get_any<TensorXf>("data")));
+                if (m_tensor.ndim() != 3)
                     Throw("Bitmap raw tensor has dimension %lu, expected 3",
-                        m_tensor->ndim());
+                        m_tensor.ndim());
 
-                const size_t channel_count = m_tensor->shape(2);
+                size_t channel_count = m_tensor.shape(2);
                 if (channel_count != 1 && channel_count != 3)
                     Throw("Unsupported tensor channel count: %d"
                           "(expected 1 or 3)", channel_count);
@@ -215,15 +257,12 @@ public:
         return { ref<Object>(expand_1()) };
     }
 
-    MI_DECLARE_CLASS()
+    MI_DECLARE_CLASS(BitmapTexture)
 
 protected:
     Object* expand_1() const {
         if (m_bitmap) {
             Format format = m_format;
-
-// TODO: Temporarily disable this as LLVM FP16 gather/scatter operations are costly
-#if 0
             // Format auto means we store texture as FP16 when possible.
             // Skip this conversion for spectral variants as we want to perform
             // spectral upsampling in the variant's native FP representation
@@ -233,17 +272,15 @@ protected:
                 if (m_format == Format::Auto && bytes_p_ch <= 2)
                     format = Format::Float16;
             }
-#endif
 
             if (format == Format::Float16)
                 return expand_bitmap<dr::replace_scalar_t<Float, dr::half>>();
             else
-               return expand_bitmap<Float>();
+                return expand_bitmap<Float>();
         }
 
         // Otherwise, initializing using tensor
         Properties props;
-        TensorXf tensor(*m_tensor);
         return new BitmapTextureImpl<Float, Spectrum, Float>(
             props,
             m_name,
@@ -252,7 +289,7 @@ protected:
             m_wrap_mode,
             m_raw,
             m_accel,
-            tensor);
+            std::move(m_tensor));
     }
 
     template <typename StoredType> Object* expand_bitmap() const {
@@ -318,7 +355,7 @@ protected:
             m_wrap_mode,
             m_raw,
             m_accel,
-            tensor);
+            std::move(tensor));
     }
 
 private:
@@ -338,18 +375,21 @@ private:
     }
 
     enum class Format {
+        Auto,
         Variant,
         Float16
     } m_format;
 
     bool m_accel;
     bool m_raw;
-    ScalarTransform3f m_transform;
+    ScalarAffineTransform3f m_transform;
     std::string m_name;
     dr::FilterMode m_filter_mode;
     dr::WrapMode m_wrap_mode;
     mutable ref<Bitmap> m_bitmap;
-    TensorXf* m_tensor;
+    TensorXf m_tensor;
+
+    MI_TRAVERSE_CB(Texture, m_bitmap, m_tensor)
 };
 
 template <typename Float, typename Spectrum, typename StoredType>
@@ -362,35 +402,37 @@ public:
     using StoredTensorXf         = dr::replace_scalar_t<TensorXf, StoredScalar>;
     using StoredTexture2f        = dr::Texture<StoredType, 2>;
 
+    template <typename Tensor>
     BitmapTextureImpl(const Properties &props,
-            const std::string& name,
-            const ScalarTransform3f& transform,
-            dr::FilterMode filter_mode,
-            dr::WrapMode wrap_mode,
-            bool raw,
-            bool accel,
-            StoredTensorXf& tensor) :
+                      const std::string& name,
+                      const ScalarAffineTransform3f& transform,
+                      dr::FilterMode filter_mode,
+                      dr::WrapMode wrap_mode,
+                      bool raw,
+                      bool accel,
+                      Tensor&& tensor) :
         Texture(props),
         m_name(name),
         m_transform(transform),
         m_accel(accel),
-        m_raw(raw),
-        m_texture(tensor, accel, accel, filter_mode, wrap_mode) {
+        m_raw(raw) {
 
         /* Compute mean without migrating texture data
            i.e. Avoid call to m_texture.tensor() that triggers migration.
            For CUDA-variants, ideally want to solely keep data as CUDA texture
         */
         rebuild_internals(tensor, true, false);
+
+        m_texture = StoredTexture2f(std::forward<Tensor>(tensor), accel, accel,
+                                    filter_mode, wrap_mode);
     }
 
-    void traverse(TraversalCallback *callback) override {
-        callback->put_parameter("data",  m_texture.tensor(), +ParamFlags::Differentiable);
-        callback->put_parameter("to_uv", m_transform,        +ParamFlags::NonDifferentiable);
+    void traverse(TraversalCallback *cb) override {
+        cb->put("data", m_texture.tensor(), ParamFlags::Differentiable);
+        cb->put("to_uv", m_transform, ParamFlags::NonDifferentiable);
     }
 
-    void
-    parameters_changed(const std::vector<std::string> &keys = {}) override {
+    void parameters_changed(const std::vector<std::string> &keys = {}) override {
         if (keys.empty() || string::contains(keys, "data")) {
             const size_t channels = m_texture.shape()[2];
             if (channels != 1 && channels != 3)
@@ -403,7 +445,7 @@ public:
                       " it must be at least 2x2 pixels in size!",
                       to_string());
 
-            m_texture.set_tensor(m_texture.tensor());
+            m_texture.update_inplace();
             rebuild_internals(m_texture.tensor(), true, m_distr2d != nullptr);
         }
     }
@@ -484,7 +526,7 @@ public:
                 if constexpr (!dr::is_array_v<Mask>)
                     active = true;
 
-                Point2f uv = m_transform.transform_affine(si.uv);
+                Point2f uv = m_transform * si.uv;
 
                 Float f00, f10, f01, f11;
                 if (channels == 1) {
@@ -493,11 +535,7 @@ public:
                     fetch_values[1] = &f10;
                     fetch_values[2] = &f01;
                     fetch_values[3] = &f11;
-
-                    if (m_accel)
-                        m_texture.template eval_fetch<Float>(uv, fetch_values, active);
-                    else
-                        m_texture.template eval_fetch_nonaccel<Float>(uv, fetch_values, active);
+                    m_texture.template eval_fetch<Float>(uv, fetch_values, active);
                 } else { // 3 channels
                     Color3f v00, v10, v01, v11;
                     dr::Array<Float *, 4> fetch_values;
@@ -505,11 +543,7 @@ public:
                     fetch_values[1] = v10.data();
                     fetch_values[2] = v01.data();
                     fetch_values[3] = v11.data();
-
-                    if (m_accel)
-                        m_texture.template eval_fetch<Float>(uv, fetch_values, active);
-                    else
-                        m_texture.template eval_fetch_nonaccel<Float>(uv, fetch_values, active);
+                    m_texture.template eval_fetch<Float>(uv, fetch_values, active);
 
                     f00 = luminance(v00);
                     f10 = luminance(v10);
@@ -604,7 +638,7 @@ public:
             }
         }
 
-        return { sample2, pdf * dr::prod(res) };
+        return { sample2, pdf_position(sample2) };
     }
 
     Float pdf_position(const Point2f &pos_, Mask active = true) const override {
@@ -691,7 +725,7 @@ public:
         return oss.str();
     }
 
-    MI_DECLARE_CLASS()
+    MI_DECLARE_CLASS(BitmapTextureImpl)
 
 protected:
     /**
@@ -703,7 +737,7 @@ protected:
         if constexpr (!dr::is_array_v<Mask>)
             active = true;
 
-        Point2f uv = m_transform.transform_affine(si.uv);
+        Point2f uv = m_transform * si.uv;
 
         if (m_texture.filter_mode() == dr::FilterMode::Linear) {
             Color3f v00, v10, v01, v11;
@@ -712,11 +746,7 @@ protected:
             fetch_values[1] = v10.data();
             fetch_values[2] = v01.data();
             fetch_values[3] = v11.data();
-
-            if (m_accel)
-                m_texture.template eval_fetch<Float>(uv, fetch_values, active);
-            else
-                m_texture.template eval_fetch_nonaccel<Float>(uv, fetch_values, active);
+            m_texture.template eval_fetch<Float>(uv, fetch_values, active);
 
             UnpolarizedSpectrum c00, c10, c01, c11, c0, c1;
             c00 = srgb_model_eval<UnpolarizedSpectrum>(v00, si.wavelengths);
@@ -737,10 +767,7 @@ protected:
             return dr::fmadd(w0.y(), c0, w1.y() * c1);
         } else {
             Color3f out;
-            if (m_accel)
-                m_texture.template eval<Float>(uv, out.data(), active);
-            else
-                m_texture.template eval_nonaccel<Float>(uv, out.data(), active);
+            m_texture.template eval<Float>(uv, out.data(), active);
 
             return srgb_model_eval<UnpolarizedSpectrum>(out, si.wavelengths);
         }
@@ -756,13 +783,10 @@ protected:
         if constexpr (!dr::is_array_v<Mask>)
             active = true;
 
-        Point2f uv = m_transform.transform_affine(si.uv);
+        Point2f uv = m_transform * si.uv;
 
         Float out;
-        if (m_accel)
-            m_texture.template eval<Float>(uv, &out, active);
-        else
-            m_texture.template eval_nonaccel<Float>(uv, &out, active);
+        m_texture.template eval<Float>(uv, &out, active);
 
         return out;
     }
@@ -777,13 +801,10 @@ protected:
         if constexpr (!dr::is_array_v<Mask>)
             active = true;
 
-        Point2f uv = m_transform.transform_affine(si.uv);
+        Point2f uv = m_transform * si.uv;
 
         Color3f out;
-        if (m_accel)
-            m_texture.template eval<Float>(uv, out.data(), active);
-        else
-            m_texture.template eval_nonaccel<Float>(uv, out.data(), active);
+        m_texture.template eval<Float>(uv, out.data(), active);
 
         return out;
     }
@@ -793,16 +814,17 @@ protected:
      * following an update
      */
     void rebuild_internals(const StoredTensorXf& tensor, bool init_mean, bool init_distr) {
-        if (m_transform != ScalarTransform3f())
+        if (m_transform != ScalarAffineTransform3f())
             dr::make_opaque(m_transform);
 
-        size_t pixel_count = (size_t) dr::prod(resolution());
-        const size_t channels = m_texture.shape()[2];
-        bool range_issue = false;
+        const dr::vector<size_t> &shape = tensor.shape();
+        size_t pixel_count = shape[0] * shape[1],
+               channels    = shape[2];
 
+        bool range_issue = false;
         using FloatStorage = DynamicBuffer<Float>;
         using StoredTypeArray= DynamicBuffer<StoredType>;
-        FloatStorage values = dr::empty<FloatStorage>(pixel_count);
+        FloatStorage values;
 
         if (channels == 3) {
             if constexpr (dr::is_jit_v<Float>) {
@@ -819,7 +841,11 @@ protected:
                     values = luminance(colors_fl);
             } else {
                 StoredScalar* ptr = (StoredScalar*) tensor.data();
-                ScalarFloat *out = values.data(), mean = 0;
+                ScalarFloat *out = nullptr, mean = 0;
+                if (init_distr) {
+                    values = dr::empty<FloatStorage>(pixel_count);
+                    out = values.data();
+                }
 
                 for (size_t i = 0; i < pixel_count; ++i) {
                     Color3f col(ptr[0], ptr[1], ptr[2]);
@@ -831,7 +857,8 @@ protected:
                     else
                         lum = luminance(col);
 
-                    *out++ = lum;
+                    if (init_distr)
+                        *out++ = lum;
                     mean += lum;
                     range_issue |= lum < 0 || lum > 1;
                 }
@@ -843,11 +870,16 @@ protected:
                 values = tensor.array();
             } else {
                 StoredScalar* ptr = (StoredScalar*) tensor.data();
-                ScalarFloat *out = values.data(), mean = 0;
+                ScalarFloat *out = nullptr, mean = 0;
+                if (init_distr) {
+                    values = dr::empty<FloatStorage>(pixel_count);
+                    out = values.data();
+                }
                 for (size_t i = 0; i < pixel_count; ++i) {
                     ScalarFloat value = ptr[i];
-                    *out++ = value;
-                    m_mean += value;
+                    if (init_distr)
+                        *out++ = value;
+                    mean += value;
                     range_issue |= value < 0 || value > 1;
                 }
                 m_mean = mean / pixel_count;
@@ -882,7 +914,7 @@ protected:
     MI_INLINE void init_distr() const {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (!m_distr2d) {
-            dr::scoped_symbolic_independence<Float> guard{};
+            dr::scoped_disable_symbolic<Float> guard{};
             auto self = const_cast<BitmapTextureImpl *>(this);
             self->rebuild_internals(m_texture.tensor(), false, true);
         }
@@ -890,7 +922,7 @@ protected:
 
 protected:
     std::string m_name;
-    ScalarTransform3f m_transform;
+    ScalarAffineTransform3f m_transform;
     bool m_accel;
     bool m_raw;
     Float m_mean;
@@ -899,10 +931,11 @@ protected:
     // Optional: distribution for importance sampling
     mutable std::mutex m_mutex;
     std::unique_ptr<DiscreteDistribution2D<Float>> m_distr2d;
+
+    MI_TRAVERSE_CB(Texture, m_mean, m_texture, m_distr2d)
 };
 
-MI_IMPLEMENT_CLASS_VARIANT(BitmapTexture, Texture)
-MI_EXPORT_PLUGIN(BitmapTexture, "Bitmap texture")
+MI_EXPORT_PLUGIN(BitmapTexture)
 
 /* This class has a name that depends on extra template parameters, so
    the standard MI_IMPLEMENT_CLASS_VARIANT macro cannot be used */
@@ -917,14 +950,5 @@ constexpr const char * bitmap_class_name() {
 }
 NAMESPACE_END(detail)
 
-template <typename Float, typename Spectrum, typename StoredType>
-Class *BitmapTextureImpl<Float, Spectrum, StoredType>::m_class
-    = new Class(detail::bitmap_class_name<StoredType>(), "Texture",
-                ::mitsuba::detail::get_variant<Float, Spectrum>(), nullptr, nullptr);
-
-template <typename Float, typename Spectrum, typename StoredType>
-const Class* BitmapTextureImpl<Float, Spectrum, StoredType>::class_() const {
-    return m_class;
-}
 
 NAMESPACE_END(mitsuba)
