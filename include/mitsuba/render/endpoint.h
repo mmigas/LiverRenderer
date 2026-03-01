@@ -384,6 +384,7 @@ public:
 
     MI_DECLARE_CLASS(Endpoint)
 
+    field<Transform4f, ScalarTransform4f> m_to_world;
 protected:
     Endpoint(const Properties &props);
     Endpoint(const Properties &props, ObjectType type);

@@ -1,0 +1,69 @@
+<scene version="3.6.0">
+    <default name="integrator" value="biovolpath06" />
+    <default name="spp" value="256" />
+    <default name="res_width" value="1920" />
+    <default name="res_height" value="1080" />
+    <default name="max_depth" value="12" />
+    <integrator type="$integrator">
+        <integer name="max_depth" value="$max_depth" />
+        <boolean name="hide_emitters" value="true" />
+    </integrator>
+    <sensor type="perspective">
+        <float name="fov" value="45" />
+        <transform name="to_world">
+            <lookat up="-0.317370, 0.895343, -0.312469" target="6.826270, 5.011984, 5.896974" origin="7.481132, 5.343665, 6.507640" />
+        </transform>
+        <sampler type="ldsampler">
+            <integer name="sample_count" value="$spp" />
+        </sampler>
+        <film type="hdrfilm">
+            <integer name="width" value="$res_width" />
+            <integer name="height" value="$res_height" />
+            <string name="file_format" value="openexr" />
+            <string name="pixel_format" value="rgb" />
+            <rfilter type="tent" />
+        </film>
+    </sensor>
+    <bsdf type="dielectric" id="ParenchymaBSDF">
+        <float name="int_ior" value="1.38" />
+        <float name="ext_ior" value="1" />
+    </bsdf>
+    <bsdf type="bumpmap" id="GlissonCapsuleBSDF">
+            <float name="scale" value="0.005" />
+        <texture name="texture" type="bitmap">
+            <string name="filename" value="tissue_n.png" />
+        </texture>
+        <bsdf type="dielectric" />
+    </bsdf>
+    <bsdf type="diffuse" id="FloorBSDF">
+        <texture name="reflectance" type="checkerboard">
+            <rgb name="color0" value="0.325, 0.31, 0.25" />
+            <rgb name="color1" value="0.725, 0.71, 0.68" />
+            <transform name="to_uv">
+                <scale x="10.000000" y="10.000000" />
+            </transform>
+        </texture>
+    </bsdf>
+
+    <medium id="parenchymaMedium" type="parenchyma">
+        <rgb name="sigma_blood" value="0.009222149349928413, 0.41800069299908693, 0.49250375679773445" />
+        <rgb name="sigma_bile" value="0.002160333333333333, 0.0030312499999999997, 0.025356499999999997" />
+        <float name="sigma_hepatocity" value="269.26180490217416" />
+        <rgb name="sigma_lipid_water" value="0.005058164470333333, 0.002550719088399999, 0.019649636585949995" />
+        <float name="scale" value="1" />
+    </medium>
+
+    <shape type="obj" id="liver2">
+        <string name="filename" value="liver2.obj" />
+        <transform name="to_world">
+            <scale value="1.0" />
+            <translate x="-5" y="5" z="-5" />
+        </transform>
+        <ref id="ParenchymaBSDF" />
+        <ref name="interior" id="parenchymaMedium" />
+    </shape>
+    
+        <emitter id="Environment-constant" type="constant">
+        <rgb name="radiance" value="1.000000 1.000000 1.000000" />
+    </emitter>
+</scene>

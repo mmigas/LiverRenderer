@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- # Main Scene File -->
+<scene version="0.5.0">
+    <integrator name="integrator" type="volpath_bio">
+        <boolean name="strictNormals" value="false"/>
+        <boolean name="hideEmitters" value="false"/>
+        <integer name="rrDepth" value="10"/>
+        <integer name="maxDepth" value="12"/>
+    </integrator>
+
+    <sensor type="perspective" id="Camera-camera">
+        <float name="fov" value="45"/>
+        <float name="shutterOpen" value="0.000000"/>
+        <transform name="toWorld">
+            <lookat up="-0.317370, 0.895343, -0.312469" target="6.826270, 5.011984, 5.896974" origin="7.481132, 5.343665, 6.507640"/>
+        </transform>
+        <sampler name="sampler" type="ldsampler">
+            <integer name="sampleCount" value="32"/>
+        </sampler>
+        <float name="nearClip" value="0.100000"/>
+        <string name="fovAxis" value="x"/>
+        <film name="film" type="ldrfilm">
+            <boolean name="banner" value="false"/>
+            <boolean name="fitHorizontal" value="true"/>
+            <float name="gamma" value="-1.000000"/>
+            <string name="tonemapMethod" value="gamma"/>
+            <!--<integer name="height" value="135"/>-->
+            <!--<integer name="width" value="240"/>-->
+            <integer name="height" value="540"/>
+            <integer name="width" value="960"/>
+
+        </film>
+    </sensor>
+
+    <!--
+    <emitter id="Environment-constant" type="constant">
+        <rgb name="radiance" value="1.000000 1.000000 1.000000"/>
+        <float name="samplingWeight" value="1.000000"/>
+    </emitter>
+    -->
+
+    <emitter type="envmap">
+        <string name="filename" value="cavidade_latitude.exr"/>
+        <float name="scale" value="2.5"/>
+        <transform name="toWorld">
+            <translate x="-3" y="3" z="4"/>
+            <scale value="1.0"/>
+            <rotate x="1.0" y="1.0" z="1.0" angle="180"/>
+        </transform>
+    </emitter>
+
+    <!-- https://academo.org/demos/wavelength-to-colour-relationship/ -->
+    <!-- 435, 546, 700   CIE 1931   -->
+    <default name="wavelength" value="425"/>
+
+    <medium type="layer1medium" id="layer1m">
+        <phase type="isotropic"> </phase>
+
+        <float name="lambda" value="$wavelength"/>
+
+        <float name="layer1Limit" value="0.0065"/>
+        <float name="layer2Limit" value="0.0072"/>
+        <float name="layer3Limit" value="0.0083"/>
+        <float name="layer4Limit" value="0.01"/>
+
+        <float name="collagen_d" value="3.5"/>
+        <float name="collagen_nMed" value="1.35"/>
+        <float name="collagen_nP" value="1.5"/>
+
+        <float name="collagen_vf1" value="0.949"/>
+        <float name="collagen_vf2" value="0.810"/>
+        <float name="collagen_vf3" value="0.001"/>
+        <float name="collagen_vf4" value="0.007"/>
+
+        <float name="elastin_d" value="0.5"/>
+        <float name="elastin_nMed" value="1.35"/>
+        <float name="elastin_nP" value="1.534"/>
+
+        <float name="elastin_vf1" value="0.051"/>
+        <float name="elastin_vf2" value="0.189"/>
+        <float name="elastin_vf3" value="0.254"/>
+        <float name="elastin_vf4" value="0.087"/>
+    </medium>
+
+    <medium type="layer2medium" id="layer2m">
+        <phase type="isotropic"> </phase>
+
+        <float name="lambda" value="$wavelength"/>
+
+        <float name="blood_vf" value="0.002"/>
+        <float name="blood_StO2" value="0.9084"/>
+        <float name="blood_R" value="0.004"/>
+
+        <float name="bile_vf" value="0.0005"/>
+
+        <float name="lipid_vf" value="0.019"/>
+        <float name="water_vf" value="0.7"/>
+
+        <float name="hepatocity_vf" value="0.8"/>
+        <float name="hepatocity_lAxis" value="0.0020"/>
+        <float name="hepatocity_gAxis" value="0.0030"/>
+    </medium>
+
+    <!--<scale value="1.000625"/>-->
+
+
+    <bsdf type="bumpmap" id="materialbump">
+        <!-- The bump map is applied to a rough metal BRDF -->
+        <bsdf type="layer1"> </bsdf>
+
+        <texture type="scale">
+            <!-- The scale of the displacement gets multiplied by 10x -->
+            <float name="scale" value="0.005"/>
+            <texture type="bitmap">
+                <string name="filename" value="tissue_n.png"/>
+            </texture>
+        </texture>
+    </bsdf>
+
+
+</scene>

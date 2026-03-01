@@ -1,0 +1,5 @@
+Image: scenes/parenchyma/mitsuba3\parenchyma.exr
+Width: 1920
+Height: 1080
+Samples per pixel: 256
+Time: 1.8861m

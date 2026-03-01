@@ -68,14 +68,14 @@ to it (as compared to, say, a :ref:`dielectric <bsdf-dielectric>` or
 
 */
 template <typename Float, typename Spectrum>
-class VolumetricPathIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
+class BioVolumetricPathIntegrator : public MonteCarloIntegrator<Float, Spectrum> {
 
 public:
     MI_IMPORT_BASE(MonteCarloIntegrator, m_max_depth, m_rr_depth, m_hide_emitters)
     MI_IMPORT_TYPES(Scene, Sampler, Emitter, EmitterPtr, BSDF, BSDFPtr,
                      Medium, MediumPtr, PhaseFunctionContext)
 
-    VolumetricPathIntegrator(const Properties &props) : Base(props) {
+    BioVolumetricPathIntegrator(const Properties &props) : Base(props) {
     }
 
     MI_INLINE
@@ -574,5 +574,6 @@ public:
     MI_DECLARE_CLASS(VolumetricPathIntegrator)
 };
 
-MI_EXPORT_PLUGIN(VolumetricPathIntegrator)
+MI_IMPLEMENT_CLASS_VARIANT(BioVolumetricPathIntegrator, MonteCarloIntegrator);
+MI_EXPORT_PLUGIN(BioVolumetricPathIntegrator, "Volumetric Path Tracer integrator");
 NAMESPACE_END(mitsuba)

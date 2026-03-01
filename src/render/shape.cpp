@@ -2,6 +2,7 @@
 #include <mitsuba/render/mesh.h>
 #include <mitsuba/render/emitter.h>
 #include <mitsuba/render/bsdf.h>
+#include <mitsuba/render/subsurface.h>
 #include <mitsuba/render/sensor.h>
 #include <mitsuba/render/medium.h>
 #include <mitsuba/core/plugin.h>

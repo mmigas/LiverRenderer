@@ -253,7 +253,7 @@ struct SilhouetteSample : public PositionSample<Float_, Spectrum_> {
 template <typename Float, typename Spectrum>
 class MI_EXPORT_LIB Shape : public JitObject<Shape<Float, Spectrum>> {
 public:
-    MI_IMPORT_TYPES(BSDF, Medium, Emitter, Sensor, MeshAttribute, Texture)
+    MI_IMPORT_TYPES(BSDF, Subsurface, Medium, Emitter, Sensor, MeshAttribute, Texture)
 
     // Use 32 bit indices to keep track of indices to conserve memory
     using ScalarIndex = uint32_t;
@@ -878,6 +878,17 @@ public:
     /// Return the shape's BSDF
     BSDF *bsdf(Mask /*unused*/ = true) { return m_bsdf.get(); }
 
+    Subsurface *subsurface(Mask /*unused*/  = true) {
+        return m_subsurface.get();
+    }
+
+    const Subsurface *subsurface(Mask /*unused*/  = true) const {
+        return m_subsurface.get();
+    }
+    
+    /// Return hash sub surface scattering
+    bool has_subsurface() const { return (bool) m_subsurface; }
+    
     /// Set the shape's BSDF
     virtual void set_bsdf(BSDF *bsdf);
 
@@ -1044,6 +1055,7 @@ protected:
     std::string get_children_string() const;
 protected:
     ref<BSDF> m_bsdf;
+    ref<Subsurface> m_subsurface;
     ref<Emitter> m_emitter;
     ref<Sensor> m_sensor;
     ref<Medium> m_interior_medium;
@@ -1189,6 +1201,7 @@ DRJIT_CALL_TEMPLATE_BEGIN(mitsuba::Shape)
     DRJIT_CALL_METHOD(surface_area)
     DRJIT_CALL_GETTER(emitter)
     DRJIT_CALL_GETTER(sensor)
+    DRJIT_CALL_GETTER(subsurface)
     DRJIT_CALL_GETTER(bsdf)
     DRJIT_CALL_GETTER(interior_medium)
     DRJIT_CALL_GETTER(exterior_medium)
@@ -1196,6 +1209,7 @@ DRJIT_CALL_TEMPLATE_BEGIN(mitsuba::Shape)
     DRJIT_CALL_GETTER(silhouette_sampling_weight)
     DRJIT_CALL_GETTER(has_flipped_normals)
     DRJIT_CALL_GETTER(shape_type)
+    auto has_subsurface() const { return subsurface() != nullptr; }
     auto is_emitter() const { return emitter() != nullptr; }
     auto is_sensor() const { return sensor() != nullptr; }
     auto is_mesh() const { return (shape_type() & +mitsuba::ShapeType::Mesh) != 0; }

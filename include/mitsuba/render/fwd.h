@@ -9,6 +9,7 @@ NAMESPACE_BEGIN(mitsuba)
 struct BSDFContext;
 struct OptixProgramGroupMapping;
 template <typename Float, typename Spectrum> class BSDF;
+template <typename Float, typename Spectrum> class Subsurface;
 template <typename Float, typename Spectrum> class OptixDenoiser;
 template <typename Float, typename Spectrum> class Emitter;
 template <typename Float, typename Spectrum> class Endpoint;
@@ -98,6 +99,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
 
     using ObjectPtr              = dr::replace_scalar_t<Float, const Object *>;
     using BSDFPtr                = dr::replace_scalar_t<Float, const BSDF *>;
+    using SubsurfacePtr          = dr::replace_scalar_t<Float, const Subsurface *>;
     using MediumPtr              = dr::replace_scalar_t<Float, const Medium *>;
     using PhaseFunctionPtr       = dr::replace_scalar_t<Float, const PhaseFunction *>;
     using ShapePtr               = dr::replace_scalar_t<Float, const Shape *>;
@@ -167,6 +169,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using MonteCarloIntegrator   = typename RenderAliases::MonteCarloIntegrator;                   \
     using AdjointIntegrator      = typename RenderAliases::AdjointIntegrator;                      \
     using BSDF                   = typename RenderAliases::BSDF;                                   \
+    using Subsurface             = typename RenderAliases::Subsurface;                             \
     using OptixDenoiser          = typename RenderAliases::OptixDenoiser;                          \
     using Sensor                 = typename RenderAliases::Sensor;                                 \
     using ProjectiveCamera       = typename RenderAliases::ProjectiveCamera;                       \
@@ -181,6 +184,7 @@ template <typename Float_, typename Spectrum_> struct RenderAliases {
     using Volume                 = typename RenderAliases::Volume;                                 \
     using ObjectPtr              = typename RenderAliases::ObjectPtr;                              \
     using BSDFPtr                = typename RenderAliases::BSDFPtr;                                \
+    using SubsurfacePtr          = typename RenderAliases::SubsurfacePtr;                          \
     using MediumPtr              = typename RenderAliases::MediumPtr;                              \
     using PhaseFunctionPtr       = typename RenderAliases::PhaseFunctionPtr;                       \
     using ShapePtr               = typename RenderAliases::ShapePtr;                               \

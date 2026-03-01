@@ -1,0 +1,5 @@
+Image: scenes/liver-singlemesh/mitsuba3\liver-singlemesh.exr
+Width: 1920
+Height: 1080
+Samples per pixel: 256
+Time: 2.6806m

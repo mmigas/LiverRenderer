@@ -153,6 +153,8 @@ public:
      */
     virtual std::string to_string() const;
 
+    static Class *m_class;
+private:
     /// Return the object type. The default is \ref ObjectType::Unknown.
     virtual ObjectType type() const;
 
